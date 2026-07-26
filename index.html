@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Contagens</title>
 <style>
+  * { box-sizing: border-box; }
   body {
     font-family: system-ui, sans-serif;
     margin: 0;
@@ -23,81 +24,93 @@
   .testes .motivo { display: block; font-size: 0.85rem; margin-top: 0.2rem; }
   .testes .resumo { font-weight: bold; margin: 1rem 0; }
 
-  .cabecalho-contagem { margin-bottom: 1rem; }
-  .cabecalho-contagem h1 { font-size: 1.4rem; margin: 0; }
+  .topo { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.2rem; }
+  .topo h1 { font-size: 1.3rem; margin: 0; }
+  .btn-voltar {
+    min-width: 44px; min-height: 44px; border: none; background: none;
+    font-size: 1.6rem; padding: 0; line-height: 1;
+  }
 
-  .lista-artigos { display: flex; flex-direction: column; gap: 1rem; padding-bottom: 2rem; }
+  .btn-primario {
+    display: block; width: 100%; min-height: 52px;
+    border: none; border-radius: 8px; background: #2563eb; color: #fff;
+    font-size: 1.05rem; font-weight: bold; margin-bottom: 1.5rem;
+  }
+  .btn-secundario {
+    display: block; width: 100%; min-height: 48px; margin-top: 0.6rem;
+    border: 1px dashed #999; border-radius: 6px; background: none; font-size: 0.95rem;
+  }
+  .btn-concluir {
+    display: block; width: 100%; min-height: 52px; margin-top: 1rem;
+    border: none; border-radius: 8px; background: #1a5c1a; color: #fff;
+    font-size: 1.05rem; font-weight: bold;
+  }
 
-  .cartao-artigo {
-    border: 1px solid #ddd;
-    border-radius: 10px;
-    padding: 0.9rem;
+  .secao-titulo { font-size: 1rem; color: #555; margin: 0 0 0.6rem; }
+  .historico-vazio { color: #777; text-align: center; padding: 2rem 0; }
+  .historico-lista { display: flex; flex-direction: column; gap: 0.5rem; }
+  .historico-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.4rem;
+    border: 1px solid #ddd; border-radius: 8px; padding: 0.5rem 0.6rem;
     background: #fff;
   }
-  .cartao-cabecalho { display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.6rem; }
-  .cartao-codigo { font-size: 0.8rem; color: #888; }
-  .cartao-nome { font-size: 1.1rem; margin: 0; }
+  .historico-item.erro { border-color: #a33; }
+  .historico-abrir {
+    flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start;
+    gap: 0.1rem; border: none; background: none; text-align: left; padding: 0.4rem;
+    min-height: 48px; justify-content: center;
+  }
+  .historico-artigo { font-weight: bold; }
+  .historico-detalhe { font-size: 0.85rem; color: #666; }
+  .historico-total { font-weight: bold; white-space: nowrap; font-size: 0.95rem; }
+  .historico-total.erro { color: #a33; }
+  .historico-remover {
+    min-width: 44px; min-height: 44px; border: none; background: none;
+    color: #a33; font-size: 1.1rem; flex: 0 0 auto;
+  }
 
-  .contagem-bloco { border-top: 1px solid #eee; padding-top: 0.7rem; margin-top: 0.7rem; }
-  .contagem-bloco:first-child { border-top: none; margin-top: 0; padding-top: 0; }
-  .contagem-cabecalho { display: flex; justify-content: space-between; align-items: center; font-weight: bold; margin-bottom: 0.4rem; }
+  .campo { margin-bottom: 0.9rem; }
+  .campo label { display: block; font-size: 0.9rem; color: #444; margin-bottom: 0.3rem; }
+  .campo input, .campo select {
+    width: 100%; min-height: 48px; font-size: 1rem;
+    border: 1px solid #ccc; border-radius: 6px; padding: 0 0.6rem;
+  }
 
-  .fornecedor-select { width: 100%; min-height: 48px; font-size: 1rem; margin-bottom: 0.5rem; }
-  .fornecedor-fixo { color: #555; margin-bottom: 0.5rem; }
+  .toggle-linha { display: flex; align-items: center; gap: 0.6rem; min-height: 44px; margin-bottom: 0.9rem; }
+  .toggle-linha input { width: 22px; height: 22px; }
+
+  .erro-mensagem {
+    color: #7a1a1a; background: #f7d9d9; border-radius: 6px;
+    padding: 0.6rem 0.8rem; margin-bottom: 0.9rem; font-size: 0.9rem;
+  }
+
+  .fornecedor-info { color: #555; margin: 0 0 0.8rem; }
 
   .config-bloco {
-    background: #f3f6fb;
-    border-radius: 8px;
-    padding: 0.5rem 0.7rem;
-    font-size: 0.85rem;
-    color: #444;
-    margin-bottom: 0.6rem;
+    background: #f3f6fb; border-radius: 8px; padding: 0.5rem 0.7rem;
+    font-size: 0.85rem; color: #444; margin-bottom: 0.9rem;
   }
   .config-bloco div { display: flex; justify-content: space-between; padding: 0.15rem 0; }
 
-  .nivel-linha { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
+  .nivel-linha { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
   .nivel-nome { flex: 0 0 4.2rem; font-size: 0.95rem; }
   .nivel-input {
-    flex: 1;
-    min-width: 0;
-    min-height: 48px;
-    font-size: 1.1rem;
-    text-align: center;
-    border: 1px solid #ccc;
-    border-radius: 6px;
+    flex: 1; min-width: 0; min-height: 48px; font-size: 1.2rem; text-align: center;
+    border: 1px solid #ccc; border-radius: 6px;
   }
   .btn-menos, .btn-mais {
-    min-width: 48px;
-    min-height: 48px;
-    font-size: 1.3rem;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    background: #f7f7f7;
-  }
-  .btn-remover { min-width: 48px; min-height: 48px; border: none; background: none; font-size: 1rem; color: #a33; }
-  .btn-nova-contagem {
-    min-height: 48px;
-    width: 100%;
-    margin-top: 0.6rem;
-    border: 1px dashed #999;
-    border-radius: 6px;
-    background: none;
-    font-size: 0.95rem;
+    min-width: 48px; min-height: 48px; font-size: 1.3rem;
+    border: 1px solid #ccc; border-radius: 6px; background: #f7f7f7;
   }
 
-  .contagem-subtotal { text-align: right; font-size: 0.9rem; color: #555; }
-  .contagem-subtotal.erro-subtotal { color: #a33; text-align: left; }
+  .subtotal-contagem { text-align: right; font-weight: bold; font-size: 1.1rem; margin: 0.8rem 0; }
+  .subtotal-contagem.erro { color: #a33; text-align: left; font-weight: normal; }
 
-  .cartao-rodape { margin-top: 0.7rem; display: flex; flex-direction: column; gap: 0.5rem; }
   .observacoes-input {
-    min-height: 44px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    padding: 0.4rem 0.6rem;
-    font-size: 0.95rem;
+    width: 100%; min-height: 70px; border: 1px solid #ddd; border-radius: 6px;
+    padding: 0.5rem 0.6rem; font-size: 0.95rem; margin-bottom: 0.9rem;
+    font-family: inherit; resize: vertical;
   }
-  .cartao-total { text-align: right; font-weight: bold; font-size: 1.05rem; }
-  .cartao-total.erro { color: #a33; text-align: left; font-weight: normal; }
 </style>
 </head>
 
@@ -340,6 +353,10 @@
     }
   }
 
+  function guardarConfiguracao(configuracao) {
+    localStorage.setItem(CHAVE_CONFIGURACAO, JSON.stringify(configuracao));
+  }
+
   function obterContagens(familiaId) {
     const guardadas = localStorage.getItem(chaveContagens(familiaId));
     if (!guardadas) return {};
@@ -355,7 +372,7 @@
     localStorage.setItem(chaveContagens(familiaId), JSON.stringify(dados));
   }
 
-  window.Armazenamento = { obterConfiguracao, obterContagens, guardarContagens };
+  window.Armazenamento = { obterConfiguracao, guardarConfiguracao, obterContagens, guardarContagens };
 })();
 </script>
 
@@ -491,6 +508,12 @@
      BLOCO 5 — INTERFACE
      Só isto lê o DOM e fala com Armazenamento. Nada aqui contém regras
      de negócio — isso vive todo no bloco de cálculo.
+
+     Fluxo de uma contagem: escolher artigo (ou criar um novo) → escolher
+     fornecedor (ou criar um novo) → quantidades por nível → observação
+     → volta ao histórico. Cada contagem é sempre um artigo + um
+     fornecedor. Navegar entre estes passos usa o histórico do browser
+     (pushState/popstate), para o botão físico de "voltar" funcionar.
      ========================================================== */
 -->
 <body>
@@ -540,36 +563,24 @@
       const configuracao = Armazenamento.obterConfiguracao();
       const familia = configuracao.familias.find((f) => f.id === 'fraldas') || configuracao.familias[0];
       const estado = Armazenamento.obterContagens(familia.id);
-      const artigosOrdenados = [...familia.artigos].sort((a, b) => a.ordem - b.ordem);
-      const mapaArtigos = new Map(familia.artigos.map((a) => [a.codigo, a]));
 
-      function guardar() {
-        Armazenamento.guardarContagens(familia.id, estado);
+      let vista = { ecra: 'inicio' };
+
+      function guardarConfig() { Armazenamento.guardarConfiguracao(configuracao); }
+      function guardarDados() { Armazenamento.guardarContagens(familia.id, estado); }
+
+      function artigosOrdenados() { return [...familia.artigos].sort((a, b) => a.ordem - b.ordem); }
+      function artigoPorCodigo(codigo) { return familia.artigos.find((a) => a.codigo === codigo) || null; }
+      function fornecedorDe(artigo, fornecedorId) { return artigo.fornecedores.find((f) => f.id === fornecedorId) || null; }
+      function dadosArtigo(codigo) {
+        if (!estado[codigo]) estado[codigo] = { contagens: [], observacoes: '' };
+        return estado[codigo];
       }
+      function novoId(prefixo) { return `${prefixo}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`; }
 
-      function linhaVazia(artigo) {
-        return {
-          fornecedorId: artigo.fornecedores.length === 1 ? artigo.fornecedores[0].id : null,
-          quantidades: {},
-        };
-      }
-
-      // Garante uma entrada em memória para o artigo, com pelo menos uma
-      // contagem (em branco, se ainda não houver nenhuma). Não grava —
-      // só grava quem chamar guardar() a seguir a uma alteração real.
-      function dadosArtigo(artigo) {
-        if (!estado[artigo.codigo]) {
-          estado[artigo.codigo] = { contagens: [], observacoes: '' };
-        }
-        const dados = estado[artigo.codigo];
-        if (dados.contagens.length === 0) {
-          dados.contagens.push(linhaVazia(artigo));
-        }
-        return dados;
-      }
-
-      function fornecedorDe(artigo, fornecedorId) {
-        return artigo.fornecedores.find((f) => f.id === fornecedorId) || null;
+      function formatarNumero(n) { return new Intl.NumberFormat('pt-PT').format(n); }
+      function escaparTexto(texto) {
+        return String(texto).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       }
 
       function subtotalLinha(artigo, linha) {
@@ -577,20 +588,8 @@
         if (!fornecedor) return { total: 0, valido: true, erros: [], fornecedor: null };
         return { ...Calculo.calcularTotalContagem(linha.quantidades, fornecedor), fornecedor };
       }
-
-      function totalDoArtigo(artigo, dados) {
-        const contagensComFornecedor = dados.contagens
-          .map((linha) => ({ quantidades: linha.quantidades, fornecedor: fornecedorDe(artigo, linha.fornecedorId) }))
-          .filter((c) => c.fornecedor);
-        return Calculo.calcularTotalArtigo(contagensComFornecedor);
-      }
-
-      function formatarNumero(n) {
-        return new Intl.NumberFormat('pt-PT').format(n);
-      }
-
-      function escaparAtributo(texto) {
-        return String(texto).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      function linhaTemConteudo(linha) {
+        return Object.values(linha.quantidades).some((v) => v > 0);
       }
 
       function configBlocoHTML(fornecedor) {
@@ -603,173 +602,333 @@
         return `<div class="config-bloco">${linhas.join('')}</div>`;
       }
 
-      function nivelInputHTML(artigo, indice, nivel, linha) {
+      function nivelInputHTML(nivel, valor) {
         const nomes = { palete: 'Palete', fiada: 'Fiada', caixa: 'Caixa', pacote: 'Pacote' };
-        const valor = linha.quantidades[nivel] || '';
         return `
-          <div class="nivel-linha" data-codigo="${artigo.codigo}" data-indice="${indice}" data-nivel="${nivel}">
+          <div class="nivel-linha" data-nivel="${nivel}">
             <span class="nivel-nome">${nomes[nivel]}</span>
             <button type="button" class="btn-menos" aria-label="Diminuir ${nomes[nivel]}">–</button>
-            <input type="text" inputmode="numeric" pattern="[0-9]*" class="nivel-input" value="${valor}">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" class="nivel-input" value="${valor || ''}">
             <button type="button" class="btn-mais" aria-label="Aumentar ${nomes[nivel]}">+</button>
           </div>
         `;
       }
 
-      function contagemHTML(artigo, linha, indice, totalLinhas) {
-        const multiFornecedor = artigo.fornecedores.length > 1;
-        const fornecedor = fornecedorDe(artigo, linha.fornecedorId);
-        const r = subtotalLinha(artigo, linha);
-        const subtotalTexto = !fornecedor
-          ? 'Escolhe o fornecedor'
-          : (r.valido ? `${formatarNumero(r.total)} un` : `⚠ ${r.erros[0]}`);
+      // ---------- navegação interna (sem sair da página, mas com histórico do browser) ----------
 
+      function irPara(novaVista, opcoes) {
+        vista = novaVista;
+        if (opcoes && opcoes.substituir) history.replaceState(vista, '');
+        else history.pushState(vista, '');
+        renderizar();
+      }
+      window.addEventListener('popstate', (e) => {
+        vista = e.state || { ecra: 'inicio' };
+        renderizar();
+      });
+      history.replaceState(vista, '');
+
+      function topoContagem(titulo) {
         return `
-          <div class="contagem-bloco" data-codigo="${artigo.codigo}" data-indice="${indice}">
-            <div class="contagem-cabecalho">
-              <span>Contagem #${indice + 1}</span>
-              ${totalLinhas > 1 ? `<button type="button" class="btn-remover" aria-label="Remover esta contagem">✕</button>` : ''}
-            </div>
-            ${multiFornecedor ? `
-              <select class="fornecedor-select">
-                <option value="" ${!linha.fornecedorId ? 'selected' : ''}>Escolher fornecedor</option>
-                ${artigo.fornecedores.map((f) => `<option value="${f.id}" ${linha.fornecedorId === f.id ? 'selected' : ''}>${f.nome}</option>`).join('')}
-              </select>
-            ` : `<div class="fornecedor-fixo">${fornecedor ? fornecedor.nome : ''}</div>`}
-            ${fornecedor ? `
-              ${configBlocoHTML(fornecedor)}
-              <div class="niveis">
-                ${['palete', 'fiada', 'caixa', 'pacote']
-                  .filter((n) => Calculo.unidadesPorNivel(fornecedor)[n] != null)
-                  .map((nivel) => nivelInputHTML(artigo, indice, nivel, linha)).join('')}
-              </div>
-              <div class="contagem-subtotal ${r.valido ? '' : 'erro-subtotal'}" id="subtotal-${artigo.codigo}-${indice}">${subtotalTexto}</div>
-            ` : ''}
+          <div class="topo">
+            <button type="button" class="btn-voltar" id="btn-voltar" aria-label="Voltar">‹</button>
+            <h1>${escaparTexto(titulo)}</h1>
           </div>
         `;
       }
-
-      function cartaoArtigoHTML(artigo) {
-        const dados = dadosArtigo(artigo);
-        const totalInfo = totalDoArtigo(artigo, dados);
-        const contagensHTML = dados.contagens.map((linha, indice) => contagemHTML(artigo, linha, indice, dados.contagens.length)).join('');
-        return `
-          <section class="cartao-artigo" id="cartao-${artigo.codigo}" data-codigo="${artigo.codigo}">
-            <header class="cartao-cabecalho">
-              <span class="cartao-codigo">${artigo.codigo}</span>
-              <h2 class="cartao-nome">${artigo.nome}</h2>
-            </header>
-            <div class="cartao-contagens">${contagensHTML}</div>
-            <button type="button" class="btn-nova-contagem">+ Nova contagem</button>
-            <div class="cartao-rodape">
-              <input type="text" class="observacoes-input" placeholder="Observações (opcional)" value="${escaparAtributo(dados.observacoes || '')}">
-              <div class="cartao-total ${totalInfo.valido ? '' : 'erro'}" id="total-${artigo.codigo}">
-                ${totalInfo.valido ? `Total: ${formatarNumero(totalInfo.total)} un` : `⚠ ${totalInfo.erros[0]}`}
-              </div>
-            </div>
-          </section>
-        `;
+      function ligarBotaoVoltar() {
+        document.getElementById('btn-voltar').addEventListener('click', () => history.back());
       }
 
-      function substituirCartao(artigo) {
-        document.getElementById(`cartao-${artigo.codigo}`).outerHTML = cartaoArtigoHTML(artigo);
-      }
+      // ---------- ecrã INÍCIO (histórico) ----------
 
-      function atualizarSubtotalETotal(artigo, indice) {
-        const dados = dadosArtigo(artigo);
-        const elSubtotal = document.getElementById(`subtotal-${artigo.codigo}-${indice}`);
-        if (elSubtotal) {
-          const r = subtotalLinha(artigo, dados.contagens[indice]);
-          elSubtotal.textContent = r.valido ? `${formatarNumero(r.total)} un` : `⚠ ${r.erros[0]}`;
-          elSubtotal.classList.toggle('erro-subtotal', !r.valido);
-        }
-        const elTotal = document.getElementById(`total-${artigo.codigo}`);
-        if (elTotal) {
-          const info = totalDoArtigo(artigo, dados);
-          elTotal.textContent = info.valido ? `Total: ${formatarNumero(info.total)} un` : `⚠ ${info.erros[0]}`;
-          elTotal.classList.toggle('erro', !info.valido);
-        }
-      }
-
-      app.innerHTML = `
-        <div class="cabecalho-contagem"><h1>${familia.nome}</h1></div>
-        <div class="lista-artigos">${artigosOrdenados.map((a) => cartaoArtigoHTML(a)).join('')}</div>
-      `;
-
-      app.addEventListener('click', (e) => {
-        const btnMais = e.target.closest('.btn-mais');
-        const btnMenos = e.target.closest('.btn-menos');
-        if (btnMais || btnMenos) {
-          const el = e.target.closest('.nivel-linha');
-          const artigo = mapaArtigos.get(el.dataset.codigo);
-          const indice = Number(el.dataset.indice);
-          const nivel = el.dataset.nivel;
-          const dados = dadosArtigo(artigo);
-          const atual = dados.contagens[indice].quantidades[nivel] || 0;
-          const novo = btnMais ? atual + 1 : Math.max(0, atual - 1);
-          dados.contagens[indice].quantidades[nivel] = novo;
-          guardar();
-          el.querySelector('.nivel-input').value = novo === 0 ? '' : String(novo);
-          atualizarSubtotalETotal(artigo, indice);
-          return;
-        }
-
-        const btnRemover = e.target.closest('.btn-remover');
-        if (btnRemover) {
-          const bloco = e.target.closest('.contagem-bloco');
-          const artigo = mapaArtigos.get(bloco.dataset.codigo);
-          const dados = dadosArtigo(artigo);
-          const indice = Number(bloco.dataset.indice);
-          if (dados.contagens.length > 1) {
-            dados.contagens.splice(indice, 1);
-            guardar();
-            substituirCartao(artigo);
+      function linhasHistorico() {
+        const linhas = [];
+        for (const artigo of artigosOrdenados()) {
+          const dados = estado[artigo.codigo];
+          if (!dados) continue;
+          for (const linha of dados.contagens) {
+            if (!linhaTemConteudo(linha)) continue;
+            linhas.push({ artigo, linha });
           }
+        }
+        return linhas;
+      }
+
+      function renderInicio() {
+        const linhas = linhasHistorico();
+        app.innerHTML = `
+          <div class="topo"><h1>${escaparTexto(familia.nome)}</h1></div>
+          <button type="button" class="btn-primario" id="btn-nova-contagem">+ Nova contagem</button>
+          <p class="secao-titulo">Histórico</p>
+          ${linhas.length === 0
+            ? `<p class="historico-vazio">Ainda não há nenhuma contagem.</p>`
+            : `<div class="historico-lista">${linhas.map(({ artigo, linha }) => {
+                const r = subtotalLinha(artigo, linha);
+                return `
+                  <div class="historico-item ${r.valido ? '' : 'erro'}" data-codigo="${artigo.codigo}" data-id="${linha.id}">
+                    <button type="button" class="historico-abrir">
+                      <span class="historico-artigo">${artigo.codigo} · ${escaparTexto(artigo.nome)}</span>
+                      <span class="historico-detalhe">${r.fornecedor ? escaparTexto(r.fornecedor.nome) : ''}</span>
+                    </button>
+                    <span class="historico-total ${r.valido ? '' : 'erro'}">${r.valido ? `${formatarNumero(r.total)} un` : '⚠ erro'}</span>
+                    <button type="button" class="historico-remover" aria-label="Remover esta contagem">✕</button>
+                  </div>
+                `;
+              }).join('')}</div>`
+          }
+        `;
+
+        document.getElementById('btn-nova-contagem').addEventListener('click', () => {
+          irPara({ ecra: 'contagem', passo: 'artigo' });
+        });
+        app.querySelectorAll('.historico-abrir').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const item = btn.closest('.historico-item');
+            irPara({ ecra: 'contagem', passo: 'quantidades', codigo: item.dataset.codigo, id: item.dataset.id });
+          });
+        });
+        app.querySelectorAll('.historico-remover').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const item = btn.closest('.historico-item');
+            const dados = dadosArtigo(item.dataset.codigo);
+            dados.contagens = dados.contagens.filter((c) => c.id !== item.dataset.id);
+            guardarDados();
+            renderInicio();
+          });
+        });
+      }
+
+      // ---------- passo: escolher artigo ----------
+
+      function abrirQuantidades(codigo, fornecedorId, opcoes) {
+        const dados = dadosArtigo(codigo);
+        const id = novoId('cont');
+        dados.contagens.push({ id, fornecedorId, quantidades: {} });
+        guardarDados();
+        irPara({ ecra: 'contagem', passo: 'quantidades', codigo, id }, opcoes);
+      }
+
+      function renderPassoArtigo() {
+        app.innerHTML = `
+          ${topoContagem('Escolher artigo')}
+          <div class="campo">
+            <label for="campo-artigo">Artigo</label>
+            <select id="campo-artigo">
+              <option value="" selected disabled>Escolher…</option>
+              ${artigosOrdenados().map((a) => `<option value="${a.codigo}">${a.codigo} · ${escaparTexto(a.nome)}</option>`).join('')}
+              <option value="__novo__">+ Artigo novo</option>
+            </select>
+          </div>
+        `;
+        ligarBotaoVoltar();
+        document.getElementById('campo-artigo').addEventListener('change', (e) => {
+          const valor = e.target.value;
+          if (valor === '__novo__') {
+            irPara({ ecra: 'contagem', passo: 'novoArtigo' });
+            return;
+          }
+          const artigo = artigoPorCodigo(valor);
+          if (artigo.fornecedores.length === 1) {
+            abrirQuantidades(artigo.codigo, artigo.fornecedores[0].id);
+          } else {
+            irPara({ ecra: 'contagem', passo: 'fornecedor', codigo: artigo.codigo });
+          }
+        });
+      }
+
+      // ---------- passo: artigo novo ----------
+
+      function renderPassoNovoArtigo() {
+        app.innerHTML = `
+          ${topoContagem('Artigo novo')}
+          <div id="erro-artigo"></div>
+          <div class="campo"><label for="novo-codigo">Código</label><input type="text" id="novo-codigo"></div>
+          <div class="campo"><label for="novo-nome">Nome</label><input type="text" id="novo-nome"></div>
+          <button type="button" class="btn-primario" id="btn-criar-artigo">Criar artigo</button>
+        `;
+        ligarBotaoVoltar();
+        document.getElementById('btn-criar-artigo').addEventListener('click', () => {
+          const codigo = document.getElementById('novo-codigo').value.trim();
+          const nome = document.getElementById('novo-nome').value.trim();
+          const erroEl = document.getElementById('erro-artigo');
+          if (!codigo || !nome) {
+            erroEl.innerHTML = `<p class="erro-mensagem">Preenche o código e o nome.</p>`;
+            return;
+          }
+          if (artigoPorCodigo(codigo)) {
+            erroEl.innerHTML = `<p class="erro-mensagem">Já existe um artigo com o código "${escaparTexto(codigo)}".</p>`;
+            return;
+          }
+          const maiorOrdem = familia.artigos.reduce((max, a) => Math.max(max, a.ordem), 0);
+          const artigo = { codigo, nome, ordem: maiorOrdem + 10, fornecedores: [] };
+          familia.artigos.push(artigo);
+          guardarConfig();
+          irPara({ ecra: 'contagem', passo: 'novoFornecedor', codigo: artigo.codigo }, { substituir: true });
+        });
+      }
+
+      // ---------- passo: escolher fornecedor ----------
+
+      function renderPassoFornecedor() {
+        const artigo = artigoPorCodigo(vista.codigo);
+        app.innerHTML = `
+          ${topoContagem(artigo.nome)}
+          <div class="campo">
+            <label for="campo-fornecedor">Fornecedor</label>
+            <select id="campo-fornecedor">
+              <option value="" selected disabled>Escolher…</option>
+              ${artigo.fornecedores.map((f) => `<option value="${f.id}">${escaparTexto(f.nome)}</option>`).join('')}
+              <option value="__novo__">+ Fornecedor novo</option>
+            </select>
+          </div>
+        `;
+        ligarBotaoVoltar();
+        document.getElementById('campo-fornecedor').addEventListener('change', (e) => {
+          const valor = e.target.value;
+          if (valor === '__novo__') {
+            irPara({ ecra: 'contagem', passo: 'novoFornecedor', codigo: artigo.codigo });
+          } else {
+            abrirQuantidades(artigo.codigo, valor);
+          }
+        });
+      }
+
+      // ---------- passo: fornecedor novo ----------
+
+      function renderPassoNovoFornecedor() {
+        const artigo = artigoPorCodigo(vista.codigo);
+        app.innerHTML = `
+          ${topoContagem(`${artigo.nome} — fornecedor novo`)}
+          <div id="erro-fornecedor"></div>
+          <div class="campo"><label for="f-nome">Nome do fornecedor</label><input type="text" id="f-nome"></div>
+          <div class="campo"><label for="f-pacote">Unidades por pacote</label><input type="number" inputmode="numeric" id="f-pacote"></div>
+          <div class="campo"><label for="f-caixa">Pacotes por caixa</label><input type="number" inputmode="numeric" id="f-caixa"></div>
+          <label class="toggle-linha"><input type="checkbox" id="f-tem-fiada"> Este fornecedor tem fiada</label>
+          <div class="campo" id="bloco-fiada" style="display:none">
+            <label for="f-fiada">Caixas por fiada</label><input type="number" inputmode="numeric" id="f-fiada">
+          </div>
+          <label class="toggle-linha" id="linha-tem-palete" style="display:none">
+            <input type="checkbox" id="f-tem-palete"> Este fornecedor tem palete
+          </label>
+          <div class="campo" id="bloco-palete" style="display:none">
+            <label for="f-palete">Fiadas por palete</label><input type="number" inputmode="numeric" id="f-palete">
+          </div>
+          <button type="button" class="btn-primario" id="btn-criar-fornecedor">Criar fornecedor</button>
+        `;
+        ligarBotaoVoltar();
+
+        document.getElementById('f-tem-fiada').addEventListener('change', (e) => {
+          document.getElementById('bloco-fiada').style.display = e.target.checked ? '' : 'none';
+          document.getElementById('linha-tem-palete').style.display = e.target.checked ? '' : 'none';
+          if (!e.target.checked) {
+            document.getElementById('f-tem-palete').checked = false;
+            document.getElementById('bloco-palete').style.display = 'none';
+          }
+        });
+        document.getElementById('f-tem-palete').addEventListener('change', (e) => {
+          document.getElementById('bloco-palete').style.display = e.target.checked ? '' : 'none';
+        });
+
+        document.getElementById('btn-criar-fornecedor').addEventListener('click', () => {
+          const erroEl = document.getElementById('erro-fornecedor');
+          const nome = document.getElementById('f-nome').value.trim();
+          const unidades_por_pacote = Number(document.getElementById('f-pacote').value);
+          const pacotes_por_caixa = Number(document.getElementById('f-caixa').value);
+          const temFiada = document.getElementById('f-tem-fiada').checked;
+          const temPalete = document.getElementById('f-tem-palete').checked;
+          const caixas_por_fiada = temFiada ? Number(document.getElementById('f-fiada').value) : null;
+          const fiadas_por_palete = temPalete ? Number(document.getElementById('f-palete').value) : null;
+
+          if (!nome) {
+            erroEl.innerHTML = `<p class="erro-mensagem">Dá um nome ao fornecedor.</p>`;
+            return;
+          }
+          try {
+            const fornecedor = Calculo.construirFornecedor({
+              id: novoId('forn'), nome, unidades_por_pacote, pacotes_por_caixa, caixas_por_fiada, fiadas_por_palete,
+            });
+            artigo.fornecedores.push(fornecedor);
+            guardarConfig();
+            abrirQuantidades(artigo.codigo, fornecedor.id, { substituir: true });
+          } catch (erro) {
+            erroEl.innerHTML = `<p class="erro-mensagem">${escaparTexto(erro.message)}</p>`;
+          }
+        });
+      }
+
+      // ---------- passo: quantidades ----------
+
+      function renderPassoQuantidades() {
+        const artigo = artigoPorCodigo(vista.codigo);
+        const dados = dadosArtigo(artigo.codigo);
+        const linha = dados.contagens.find((c) => c.id === vista.id);
+        const fornecedor = fornecedorDe(artigo, linha.fornecedorId);
+        const r = subtotalLinha(artigo, linha);
+
+        app.innerHTML = `
+          ${topoContagem(artigo.nome)}
+          <p class="fornecedor-info">${escaparTexto(fornecedor.nome)}</p>
+          ${configBlocoHTML(fornecedor)}
+          <div class="niveis">
+            ${['palete', 'fiada', 'caixa', 'pacote']
+              .filter((n) => Calculo.unidadesPorNivel(fornecedor)[n] != null)
+              .map((n) => nivelInputHTML(n, linha.quantidades[n])).join('')}
+          </div>
+          <div class="subtotal-contagem ${r.valido ? '' : 'erro'}">${r.valido ? `${formatarNumero(r.total)} un` : `⚠ ${r.erros[0]}`}</div>
+          <textarea class="observacoes-input" id="campo-observacoes" placeholder="Observações (opcional)">${escaparTexto(dados.observacoes || '')}</textarea>
+          <button type="button" class="btn-concluir" id="btn-concluir">Concluído</button>
+        `;
+
+        ligarBotaoVoltar();
+        document.getElementById('btn-concluir').addEventListener('click', () => {
+          irPara({ ecra: 'inicio' }, { substituir: true });
+        });
+
+        app.querySelectorAll('.nivel-linha').forEach((linhaEl) => {
+          const nivel = linhaEl.dataset.nivel;
+          const input = linhaEl.querySelector('.nivel-input');
+
+          function aplicar(novoValor) {
+            linha.quantidades[nivel] = novoValor;
+            guardarDados();
+            input.value = novoValor === 0 ? '' : String(novoValor);
+            const rNovo = subtotalLinha(artigo, linha);
+            const subtotalEl = app.querySelector('.subtotal-contagem');
+            subtotalEl.textContent = rNovo.valido ? `${formatarNumero(rNovo.total)} un` : `⚠ ${rNovo.erros[0]}`;
+            subtotalEl.classList.toggle('erro', !rNovo.valido);
+          }
+
+          linhaEl.querySelector('.btn-mais').addEventListener('click', () => aplicar((linha.quantidades[nivel] || 0) + 1));
+          linhaEl.querySelector('.btn-menos').addEventListener('click', () => aplicar(Math.max(0, (linha.quantidades[nivel] || 0) - 1)));
+          input.addEventListener('input', () => {
+            const limpo = input.value.replace(/\D/g, '');
+            if (limpo !== input.value) input.value = limpo;
+            aplicar(limpo === '' ? 0 : parseInt(limpo, 10));
+          });
+        });
+
+        document.getElementById('campo-observacoes').addEventListener('input', (e) => {
+          dados.observacoes = e.target.value;
+          guardarDados();
+        });
+      }
+
+      // ---------- despacho ----------
+
+      function renderizar() {
+        if (vista.ecra === 'inicio') {
+          renderInicio();
           return;
         }
+        if (vista.passo === 'artigo') renderPassoArtigo();
+        else if (vista.passo === 'novoArtigo') renderPassoNovoArtigo();
+        else if (vista.passo === 'fornecedor') renderPassoFornecedor();
+        else if (vista.passo === 'novoFornecedor') renderPassoNovoFornecedor();
+        else if (vista.passo === 'quantidades') renderPassoQuantidades();
+      }
 
-        const btnNova = e.target.closest('.btn-nova-contagem');
-        if (btnNova) {
-          const artigo = mapaArtigos.get(e.target.closest('.cartao-artigo').dataset.codigo);
-          const dados = dadosArtigo(artigo);
-          dados.contagens.push(linhaVazia(artigo));
-          guardar();
-          substituirCartao(artigo);
-        }
-      });
-
-      app.addEventListener('input', (e) => {
-        if (e.target.matches('.nivel-input')) {
-          const el = e.target.closest('.nivel-linha');
-          const artigo = mapaArtigos.get(el.dataset.codigo);
-          const indice = Number(el.dataset.indice);
-          const nivel = el.dataset.nivel;
-          const limpo = e.target.value.replace(/\D/g, '');
-          if (limpo !== e.target.value) e.target.value = limpo;
-          const dados = dadosArtigo(artigo);
-          dados.contagens[indice].quantidades[nivel] = limpo === '' ? 0 : parseInt(limpo, 10);
-          guardar();
-          atualizarSubtotalETotal(artigo, indice);
-          return;
-        }
-        if (e.target.matches('.observacoes-input')) {
-          const artigo = mapaArtigos.get(e.target.closest('.cartao-artigo').dataset.codigo);
-          dadosArtigo(artigo).observacoes = e.target.value;
-          guardar();
-        }
-      });
-
-      app.addEventListener('change', (e) => {
-        if (e.target.matches('.fornecedor-select')) {
-          const bloco = e.target.closest('.contagem-bloco');
-          const artigo = mapaArtigos.get(bloco.dataset.codigo);
-          const indice = Number(bloco.dataset.indice);
-          const dados = dadosArtigo(artigo);
-          dados.contagens[indice].fornecedorId = e.target.value || null;
-          guardar();
-          substituirCartao(artigo);
-        }
-      });
+      renderizar();
     }
   })();
   </script>
