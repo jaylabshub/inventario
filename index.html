@@ -10,17 +10,6 @@
     margin: 0;
     padding: 1.5rem;
   }
-  .inicial {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 80svh;
-    text-align: center;
-  }
-  .inicial h1 { font-size: 2rem; margin-bottom: 0.5rem; }
-  .inicial p { font-size: 1.2rem; color: #555; }
-
   .testes h1 { font-size: 1.3rem; }
   .testes ul { list-style: none; padding: 0; }
   .testes li {
@@ -33,6 +22,82 @@
   .testes li.falha { background: #f7d9d9; color: #7a1a1a; }
   .testes .motivo { display: block; font-size: 0.85rem; margin-top: 0.2rem; }
   .testes .resumo { font-weight: bold; margin: 1rem 0; }
+
+  .cabecalho-contagem { margin-bottom: 1rem; }
+  .cabecalho-contagem h1 { font-size: 1.4rem; margin: 0; }
+
+  .lista-artigos { display: flex; flex-direction: column; gap: 1rem; padding-bottom: 2rem; }
+
+  .cartao-artigo {
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    padding: 0.9rem;
+    background: #fff;
+  }
+  .cartao-cabecalho { display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.6rem; }
+  .cartao-codigo { font-size: 0.8rem; color: #888; }
+  .cartao-nome { font-size: 1.1rem; margin: 0; }
+
+  .contagem-bloco { border-top: 1px solid #eee; padding-top: 0.7rem; margin-top: 0.7rem; }
+  .contagem-bloco:first-child { border-top: none; margin-top: 0; padding-top: 0; }
+  .contagem-cabecalho { display: flex; justify-content: space-between; align-items: center; font-weight: bold; margin-bottom: 0.4rem; }
+
+  .fornecedor-select { width: 100%; min-height: 48px; font-size: 1rem; margin-bottom: 0.5rem; }
+  .fornecedor-fixo { color: #555; margin-bottom: 0.5rem; }
+
+  .config-bloco {
+    background: #f3f6fb;
+    border-radius: 8px;
+    padding: 0.5rem 0.7rem;
+    font-size: 0.85rem;
+    color: #444;
+    margin-bottom: 0.6rem;
+  }
+  .config-bloco div { display: flex; justify-content: space-between; padding: 0.15rem 0; }
+
+  .nivel-linha { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
+  .nivel-nome { flex: 0 0 4.2rem; font-size: 0.95rem; }
+  .nivel-input {
+    flex: 1;
+    min-width: 0;
+    min-height: 48px;
+    font-size: 1.1rem;
+    text-align: center;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+  }
+  .btn-menos, .btn-mais {
+    min-width: 48px;
+    min-height: 48px;
+    font-size: 1.3rem;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background: #f7f7f7;
+  }
+  .btn-remover { min-width: 48px; min-height: 48px; border: none; background: none; font-size: 1rem; color: #a33; }
+  .btn-nova-contagem {
+    min-height: 48px;
+    width: 100%;
+    margin-top: 0.6rem;
+    border: 1px dashed #999;
+    border-radius: 6px;
+    background: none;
+    font-size: 0.95rem;
+  }
+
+  .contagem-subtotal { text-align: right; font-size: 0.9rem; color: #555; }
+  .contagem-subtotal.erro-subtotal { color: #a33; text-align: left; }
+
+  .cartao-rodape { margin-top: 0.7rem; display: flex; flex-direction: column; gap: 0.5rem; }
+  .observacoes-input {
+    min-height: 44px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.95rem;
+  }
+  .cartao-total { text-align: right; font-weight: bold; font-size: 1.05rem; }
+  .cartao-total.erro { color: #a33; text-align: left; font-weight: normal; }
 </style>
 </head>
 
@@ -252,7 +317,50 @@
 </script>
 
 <!-- ==========================================================
-     BLOCO 3 — TESTES
+     BLOCO 3 — ARMAZENAMENTO
+     O único sítio que fala com localStorage. Nunca chamado a partir do
+     bloco de cálculo; só a partir da interface.
+     ========================================================== */
+-->
+<script>
+(function () {
+  'use strict';
+
+  const CHAVE_CONFIGURACAO = 'contagens_configuracao';
+  const chaveContagens = (familiaId) => `contagens_dados_${familiaId}`;
+
+  function obterConfiguracao() {
+    const guardada = localStorage.getItem(CHAVE_CONFIGURACAO);
+    if (!guardada) return window.CONFIGURACAO_EXEMPLO;
+    try {
+      return JSON.parse(guardada);
+    } catch (e) {
+      console.error('Configuração guardada é inválida, a usar a de exemplo.', e);
+      return window.CONFIGURACAO_EXEMPLO;
+    }
+  }
+
+  function obterContagens(familiaId) {
+    const guardadas = localStorage.getItem(chaveContagens(familiaId));
+    if (!guardadas) return {};
+    try {
+      return JSON.parse(guardadas);
+    } catch (e) {
+      console.error('Contagens guardadas são inválidas, a começar vazio.', e);
+      return {};
+    }
+  }
+
+  function guardarContagens(familiaId, dados) {
+    localStorage.setItem(chaveContagens(familiaId), JSON.stringify(dados));
+  }
+
+  window.Armazenamento = { obterConfiguracao, obterContagens, guardarContagens };
+})();
+</script>
+
+<!-- ==========================================================
+     BLOCO 4 — TESTES
      Corre só com ?teste=1. Usa casos reais da folha que a app substitui.
      ========================================================== */
 -->
@@ -380,8 +488,9 @@
 </script>
 
 <!-- ==========================================================
-     BLOCO 4 — INTERFACE
-     Só isto lê o DOM. Nada aqui contém regras de negócio.
+     BLOCO 5 — INTERFACE
+     Só isto lê o DOM e fala com Armazenamento. Nada aqui contém regras
+     de negócio — isso vive todo no bloco de cálculo.
      ========================================================== */
 -->
 <body>
@@ -393,41 +502,275 @@
     const app = document.getElementById('app');
     const modoTeste = new URLSearchParams(window.location.search).get('teste') === '1';
 
-    if (!modoTeste) {
-      app.innerHTML = `
-        <div class="inicial">
-          <h1>Contagens</h1>
-          <p>${new Date().toLocaleDateString('pt-PT', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-        </div>
-      `;
-      return;
+    if (modoTeste) {
+      iniciarEcraDeTestes();
+    } else {
+      iniciarEcraDeContagem();
     }
 
-    const resultados = window.TESTES.map(({ nome, fn }) => {
-      try {
-        fn();
-        return { nome, ok: true };
-      } catch (e) {
-        return { nome, ok: false, motivo: e.message };
+    function iniciarEcraDeTestes() {
+      const resultados = window.TESTES.map(({ nome, fn }) => {
+        try {
+          fn();
+          return { nome, ok: true };
+        } catch (e) {
+          return { nome, ok: false, motivo: e.message };
+        }
+      });
+
+      const falhas = resultados.filter((r) => !r.ok).length;
+
+      app.innerHTML = `
+        <div class="testes">
+          <h1>Testes</h1>
+          <p class="resumo">${resultados.length - falhas} / ${resultados.length} a passar</p>
+          <ul>
+            ${resultados.map((r) => `
+              <li class="${r.ok ? 'ok' : 'falha'}">
+                ${r.ok ? '✓' : '✗'} ${r.nome}
+                ${r.ok ? '' : `<span class="motivo">${r.motivo}</span>`}
+              </li>
+            `).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    function iniciarEcraDeContagem() {
+      const configuracao = Armazenamento.obterConfiguracao();
+      const familia = configuracao.familias.find((f) => f.id === 'fraldas') || configuracao.familias[0];
+      const estado = Armazenamento.obterContagens(familia.id);
+      const artigosOrdenados = [...familia.artigos].sort((a, b) => a.ordem - b.ordem);
+      const mapaArtigos = new Map(familia.artigos.map((a) => [a.codigo, a]));
+
+      function guardar() {
+        Armazenamento.guardarContagens(familia.id, estado);
       }
-    });
 
-    const falhas = resultados.filter((r) => !r.ok).length;
+      function linhaVazia(artigo) {
+        return {
+          fornecedorId: artigo.fornecedores.length === 1 ? artigo.fornecedores[0].id : null,
+          quantidades: {},
+        };
+      }
 
-    app.innerHTML = `
-      <div class="testes">
-        <h1>Testes</h1>
-        <p class="resumo">${resultados.length - falhas} / ${resultados.length} a passar</p>
-        <ul>
-          ${resultados.map((r) => `
-            <li class="${r.ok ? 'ok' : 'falha'}">
-              ${r.ok ? '✓' : '✗'} ${r.nome}
-              ${r.ok ? '' : `<span class="motivo">${r.motivo}</span>`}
-            </li>
-          `).join('')}
-        </ul>
-      </div>
-    `;
+      // Garante uma entrada em memória para o artigo, com pelo menos uma
+      // contagem (em branco, se ainda não houver nenhuma). Não grava —
+      // só grava quem chamar guardar() a seguir a uma alteração real.
+      function dadosArtigo(artigo) {
+        if (!estado[artigo.codigo]) {
+          estado[artigo.codigo] = { contagens: [], observacoes: '' };
+        }
+        const dados = estado[artigo.codigo];
+        if (dados.contagens.length === 0) {
+          dados.contagens.push(linhaVazia(artigo));
+        }
+        return dados;
+      }
+
+      function fornecedorDe(artigo, fornecedorId) {
+        return artigo.fornecedores.find((f) => f.id === fornecedorId) || null;
+      }
+
+      function subtotalLinha(artigo, linha) {
+        const fornecedor = fornecedorDe(artigo, linha.fornecedorId);
+        if (!fornecedor) return { total: 0, valido: true, erros: [], fornecedor: null };
+        return { ...Calculo.calcularTotalContagem(linha.quantidades, fornecedor), fornecedor };
+      }
+
+      function totalDoArtigo(artigo, dados) {
+        const contagensComFornecedor = dados.contagens
+          .map((linha) => ({ quantidades: linha.quantidades, fornecedor: fornecedorDe(artigo, linha.fornecedorId) }))
+          .filter((c) => c.fornecedor);
+        return Calculo.calcularTotalArtigo(contagensComFornecedor);
+      }
+
+      function formatarNumero(n) {
+        return new Intl.NumberFormat('pt-PT').format(n);
+      }
+
+      function escaparAtributo(texto) {
+        return String(texto).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      }
+
+      function configBlocoHTML(fornecedor) {
+        const u = Calculo.unidadesPorNivel(fornecedor);
+        const linhas = [];
+        if (u.palete != null) linhas.push(`<div>1 palete = ${fornecedor.fiadas_por_palete} fiadas <b>${formatarNumero(u.palete)} un</b></div>`);
+        if (u.fiada != null) linhas.push(`<div>1 fiada = ${fornecedor.caixas_por_fiada} caixas <b>${formatarNumero(u.fiada)} un</b></div>`);
+        linhas.push(`<div>1 caixa = ${fornecedor.pacotes_por_caixa} pacotes <b>${formatarNumero(u.caixa)} un</b></div>`);
+        linhas.push(`<div>1 pacote <b>${formatarNumero(u.pacote)} un</b></div>`);
+        return `<div class="config-bloco">${linhas.join('')}</div>`;
+      }
+
+      function nivelInputHTML(artigo, indice, nivel, linha) {
+        const nomes = { palete: 'Palete', fiada: 'Fiada', caixa: 'Caixa', pacote: 'Pacote' };
+        const valor = linha.quantidades[nivel] || '';
+        return `
+          <div class="nivel-linha" data-codigo="${artigo.codigo}" data-indice="${indice}" data-nivel="${nivel}">
+            <span class="nivel-nome">${nomes[nivel]}</span>
+            <button type="button" class="btn-menos" aria-label="Diminuir ${nomes[nivel]}">–</button>
+            <input type="text" inputmode="numeric" pattern="[0-9]*" class="nivel-input" value="${valor}">
+            <button type="button" class="btn-mais" aria-label="Aumentar ${nomes[nivel]}">+</button>
+          </div>
+        `;
+      }
+
+      function contagemHTML(artigo, linha, indice, totalLinhas) {
+        const multiFornecedor = artigo.fornecedores.length > 1;
+        const fornecedor = fornecedorDe(artigo, linha.fornecedorId);
+        const r = subtotalLinha(artigo, linha);
+        const subtotalTexto = !fornecedor
+          ? 'Escolhe o fornecedor'
+          : (r.valido ? `${formatarNumero(r.total)} un` : `⚠ ${r.erros[0]}`);
+
+        return `
+          <div class="contagem-bloco" data-codigo="${artigo.codigo}" data-indice="${indice}">
+            <div class="contagem-cabecalho">
+              <span>Contagem #${indice + 1}</span>
+              ${totalLinhas > 1 ? `<button type="button" class="btn-remover" aria-label="Remover esta contagem">✕</button>` : ''}
+            </div>
+            ${multiFornecedor ? `
+              <select class="fornecedor-select">
+                <option value="" ${!linha.fornecedorId ? 'selected' : ''}>Escolher fornecedor</option>
+                ${artigo.fornecedores.map((f) => `<option value="${f.id}" ${linha.fornecedorId === f.id ? 'selected' : ''}>${f.nome}</option>`).join('')}
+              </select>
+            ` : `<div class="fornecedor-fixo">${fornecedor ? fornecedor.nome : ''}</div>`}
+            ${fornecedor ? `
+              ${configBlocoHTML(fornecedor)}
+              <div class="niveis">
+                ${['palete', 'fiada', 'caixa', 'pacote']
+                  .filter((n) => Calculo.unidadesPorNivel(fornecedor)[n] != null)
+                  .map((nivel) => nivelInputHTML(artigo, indice, nivel, linha)).join('')}
+              </div>
+              <div class="contagem-subtotal ${r.valido ? '' : 'erro-subtotal'}" id="subtotal-${artigo.codigo}-${indice}">${subtotalTexto}</div>
+            ` : ''}
+          </div>
+        `;
+      }
+
+      function cartaoArtigoHTML(artigo) {
+        const dados = dadosArtigo(artigo);
+        const totalInfo = totalDoArtigo(artigo, dados);
+        const contagensHTML = dados.contagens.map((linha, indice) => contagemHTML(artigo, linha, indice, dados.contagens.length)).join('');
+        return `
+          <section class="cartao-artigo" id="cartao-${artigo.codigo}" data-codigo="${artigo.codigo}">
+            <header class="cartao-cabecalho">
+              <span class="cartao-codigo">${artigo.codigo}</span>
+              <h2 class="cartao-nome">${artigo.nome}</h2>
+            </header>
+            <div class="cartao-contagens">${contagensHTML}</div>
+            <button type="button" class="btn-nova-contagem">+ Nova contagem</button>
+            <div class="cartao-rodape">
+              <input type="text" class="observacoes-input" placeholder="Observações (opcional)" value="${escaparAtributo(dados.observacoes || '')}">
+              <div class="cartao-total ${totalInfo.valido ? '' : 'erro'}" id="total-${artigo.codigo}">
+                ${totalInfo.valido ? `Total: ${formatarNumero(totalInfo.total)} un` : `⚠ ${totalInfo.erros[0]}`}
+              </div>
+            </div>
+          </section>
+        `;
+      }
+
+      function substituirCartao(artigo) {
+        document.getElementById(`cartao-${artigo.codigo}`).outerHTML = cartaoArtigoHTML(artigo);
+      }
+
+      function atualizarSubtotalETotal(artigo, indice) {
+        const dados = dadosArtigo(artigo);
+        const elSubtotal = document.getElementById(`subtotal-${artigo.codigo}-${indice}`);
+        if (elSubtotal) {
+          const r = subtotalLinha(artigo, dados.contagens[indice]);
+          elSubtotal.textContent = r.valido ? `${formatarNumero(r.total)} un` : `⚠ ${r.erros[0]}`;
+          elSubtotal.classList.toggle('erro-subtotal', !r.valido);
+        }
+        const elTotal = document.getElementById(`total-${artigo.codigo}`);
+        if (elTotal) {
+          const info = totalDoArtigo(artigo, dados);
+          elTotal.textContent = info.valido ? `Total: ${formatarNumero(info.total)} un` : `⚠ ${info.erros[0]}`;
+          elTotal.classList.toggle('erro', !info.valido);
+        }
+      }
+
+      app.innerHTML = `
+        <div class="cabecalho-contagem"><h1>${familia.nome}</h1></div>
+        <div class="lista-artigos">${artigosOrdenados.map((a) => cartaoArtigoHTML(a)).join('')}</div>
+      `;
+
+      app.addEventListener('click', (e) => {
+        const btnMais = e.target.closest('.btn-mais');
+        const btnMenos = e.target.closest('.btn-menos');
+        if (btnMais || btnMenos) {
+          const el = e.target.closest('.nivel-linha');
+          const artigo = mapaArtigos.get(el.dataset.codigo);
+          const indice = Number(el.dataset.indice);
+          const nivel = el.dataset.nivel;
+          const dados = dadosArtigo(artigo);
+          const atual = dados.contagens[indice].quantidades[nivel] || 0;
+          const novo = btnMais ? atual + 1 : Math.max(0, atual - 1);
+          dados.contagens[indice].quantidades[nivel] = novo;
+          guardar();
+          el.querySelector('.nivel-input').value = novo === 0 ? '' : String(novo);
+          atualizarSubtotalETotal(artigo, indice);
+          return;
+        }
+
+        const btnRemover = e.target.closest('.btn-remover');
+        if (btnRemover) {
+          const bloco = e.target.closest('.contagem-bloco');
+          const artigo = mapaArtigos.get(bloco.dataset.codigo);
+          const dados = dadosArtigo(artigo);
+          const indice = Number(bloco.dataset.indice);
+          if (dados.contagens.length > 1) {
+            dados.contagens.splice(indice, 1);
+            guardar();
+            substituirCartao(artigo);
+          }
+          return;
+        }
+
+        const btnNova = e.target.closest('.btn-nova-contagem');
+        if (btnNova) {
+          const artigo = mapaArtigos.get(e.target.closest('.cartao-artigo').dataset.codigo);
+          const dados = dadosArtigo(artigo);
+          dados.contagens.push(linhaVazia(artigo));
+          guardar();
+          substituirCartao(artigo);
+        }
+      });
+
+      app.addEventListener('input', (e) => {
+        if (e.target.matches('.nivel-input')) {
+          const el = e.target.closest('.nivel-linha');
+          const artigo = mapaArtigos.get(el.dataset.codigo);
+          const indice = Number(el.dataset.indice);
+          const nivel = el.dataset.nivel;
+          const limpo = e.target.value.replace(/\D/g, '');
+          if (limpo !== e.target.value) e.target.value = limpo;
+          const dados = dadosArtigo(artigo);
+          dados.contagens[indice].quantidades[nivel] = limpo === '' ? 0 : parseInt(limpo, 10);
+          guardar();
+          atualizarSubtotalETotal(artigo, indice);
+          return;
+        }
+        if (e.target.matches('.observacoes-input')) {
+          const artigo = mapaArtigos.get(e.target.closest('.cartao-artigo').dataset.codigo);
+          dadosArtigo(artigo).observacoes = e.target.value;
+          guardar();
+        }
+      });
+
+      app.addEventListener('change', (e) => {
+        if (e.target.matches('.fornecedor-select')) {
+          const bloco = e.target.closest('.contagem-bloco');
+          const artigo = mapaArtigos.get(bloco.dataset.codigo);
+          const indice = Number(bloco.dataset.indice);
+          const dados = dadosArtigo(artigo);
+          dados.contagens[indice].fornecedorId = e.target.value || null;
+          guardar();
+          substituirCartao(artigo);
+        }
+      });
+    }
   })();
   </script>
 </body>
