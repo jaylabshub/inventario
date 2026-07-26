@@ -7,24 +7,428 @@
 <style>
   body {
     font-family: system-ui, sans-serif;
+    margin: 0;
+    padding: 1.5rem;
+  }
+  .inicial {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 100svh;
-    margin: 0;
+    height: 80svh;
     text-align: center;
   }
-  h1 { font-size: 2rem; margin-bottom: 0.5rem; }
-  p { font-size: 1.2rem; color: #555; }
+  .inicial h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+  .inicial p { font-size: 1.2rem; color: #555; }
+
+  .testes h1 { font-size: 1.3rem; }
+  .testes ul { list-style: none; padding: 0; }
+  .testes li {
+    padding: 0.6rem 0.8rem;
+    margin-bottom: 0.4rem;
+    border-radius: 6px;
+    font-size: 0.95rem;
+  }
+  .testes li.ok { background: #d9f2d9; color: #1a5c1a; }
+  .testes li.falha { background: #f7d9d9; color: #7a1a1a; }
+  .testes .motivo { display: block; font-size: 0.85rem; margin-top: 0.2rem; }
+  .testes .resumo { font-weight: bold; margin: 1rem 0; }
 </style>
 </head>
+
+<!-- ==========================================================
+     BLOCO 1 — FUNÇÕES PURAS (cálculo)
+     Recebem dados, devolvem dados. Nunca tocam em document nem em
+     localStorage. Se isso mudar, a regra de arquitetura foi quebrada.
+     ========================================================== */
+-->
+<script>
+(function () {
+  'use strict';
+
+  const NIVEIS = ['palete', 'fiada', 'caixa', 'pacote'];
+
+  // Constrói e valida um fornecedor a partir dos multiplicadores.
+  // A hierarquia é contígua de baixo para cima: pacote (sempre) → caixa
+  // → fiada → palete. Um nível só existe se todos os de baixo existirem.
+  // Rejeita (lança erro) qualquer configuração com um buraco.
+  function construirFornecedor(dados) {
+    const { id, nome, unidades_por_pacote, pacotes_por_caixa, caixas_por_fiada, fiadas_por_palete } = dados;
+
+    if (!(unidades_por_pacote > 0)) {
+      throw new Error(`Fornecedor "${nome}": o pacote tem de ter um número de unidades maior que zero.`);
+    }
+    if (!(pacotes_por_caixa > 0)) {
+      throw new Error(`Fornecedor "${nome}": a caixa tem de ter um número de pacotes maior que zero.`);
+    }
+    if (caixas_por_fiada != null && !(caixas_por_fiada > 0)) {
+      throw new Error(`Fornecedor "${nome}": o número de caixas por fiada tem de ser maior que zero, ou não existir.`);
+    }
+    if (fiadas_por_palete != null && !(fiadas_por_palete > 0)) {
+      throw new Error(`Fornecedor "${nome}": o número de fiadas por palete tem de ser maior que zero, ou não existir.`);
+    }
+    if (fiadas_por_palete != null && caixas_por_fiada == null) {
+      throw new Error(`Fornecedor "${nome}": não pode haver palete sem fiada. A configuração tem um buraco na hierarquia.`);
+    }
+
+    return {
+      id, nome,
+      unidades_por_pacote,
+      pacotes_por_caixa,
+      caixas_por_fiada: caixas_por_fiada == null ? null : caixas_por_fiada,
+      fiadas_por_palete: fiadas_por_palete == null ? null : fiadas_por_palete,
+    };
+  }
+
+  // Converte valores "unidades por nível" (como vêm da folha antiga) em
+  // multiplicadores entre níveis consecutivos. Assinala em `avisos`
+  // qualquer divisão que não feche num número inteiro — não rejeita,
+  // só sinaliza, porque quem decide o que fazer com isso é quem chama.
+  function converterNiveisParaMultiplicadores({ unidadesPacote, unidadesCaixa, unidadesFiada, unidadesPalete }) {
+    const avisos = [];
+    function dividir(nomeNivel, maior, menor) {
+      if (maior == null || menor == null) return null;
+      const resultado = maior / menor;
+      if (!Number.isInteger(resultado)) {
+        avisos.push(`${nomeNivel}: ${maior} / ${menor} = ${resultado}, não é um número inteiro.`);
+      }
+      return resultado;
+    }
+    return {
+      unidades_por_pacote: unidadesPacote,
+      pacotes_por_caixa: dividir('pacotes_por_caixa', unidadesCaixa, unidadesPacote),
+      caixas_por_fiada: dividir('caixas_por_fiada', unidadesFiada, unidadesCaixa),
+      fiadas_por_palete: dividir('fiadas_por_palete', unidadesPalete, unidadesFiada),
+      avisos,
+    };
+  }
+
+  // Unidades que cada nível vale para um fornecedor. Nível inexistente
+  // fica a null.
+  function unidadesPorNivel(fornecedor) {
+    const pacote = fornecedor.unidades_por_pacote;
+    const caixa = fornecedor.pacotes_por_caixa != null ? pacote * fornecedor.pacotes_por_caixa : null;
+    const fiada = (caixa != null && fornecedor.caixas_por_fiada != null) ? caixa * fornecedor.caixas_por_fiada : null;
+    const palete = (fiada != null && fornecedor.fiadas_por_palete != null) ? fiada * fornecedor.fiadas_por_palete : null;
+    return { palete, fiada, caixa, pacote };
+  }
+
+  // Total de uma única contagem (um fornecedor, quantidades por nível).
+  // Se aparecer quantidade num nível que não existe nesse fornecedor,
+  // isso é erro: o total não é dado como bom.
+  function calcularTotalContagem(quantidades, fornecedor) {
+    const unidades = unidadesPorNivel(fornecedor);
+    const erros = [];
+    let total = 0;
+    for (const nivel of NIVEIS) {
+      const qtd = quantidades[nivel] || 0;
+      if (qtd === 0) continue;
+      if (unidades[nivel] == null) {
+        erros.push(`O fornecedor "${fornecedor.nome}" não tem o nível "${nivel}", mas foi contada uma quantidade (${qtd}).`);
+        continue;
+      }
+      total += qtd * unidades[nivel];
+    }
+    return { total, valido: erros.length === 0, erros };
+  }
+
+  // Soma várias contagens do mesmo artigo (cada uma com o seu fornecedor).
+  function calcularTotalArtigo(contagens) {
+    let total = 0;
+    let erros = [];
+    for (const c of contagens) {
+      const r = calcularTotalContagem(c.quantidades, c.fornecedor);
+      total += r.total;
+      erros = erros.concat(r.erros);
+    }
+    return { total, valido: erros.length === 0, erros };
+  }
+
+  // Gera o resultado final: todos os artigos da família, pela ordem da
+  // configuração, com 0 nos que não tiveram nenhuma contagem.
+  function gerarResultado(familia, contagensPorCodigo) {
+    const artigosOrdenados = [...familia.artigos].sort((a, b) => a.ordem - b.ordem);
+    return artigosOrdenados.map((artigo) => {
+      const brutas = contagensPorCodigo[artigo.codigo] || [];
+      const contagens = brutas.map((c) => ({
+        quantidades: c.quantidades,
+        fornecedor: artigo.fornecedores.find((f) => f.id === c.fornecedorId),
+      }));
+      const r = calcularTotalArtigo(contagens);
+      return {
+        codigo: artigo.codigo,
+        nome: artigo.nome,
+        ordem: artigo.ordem,
+        total: r.total,
+        valido: r.valido,
+        erros: r.erros,
+      };
+    });
+  }
+
+  window.Calculo = {
+    construirFornecedor,
+    converterNiveisParaMultiplicadores,
+    unidadesPorNivel,
+    calcularTotalContagem,
+    calcularTotalArtigo,
+    gerarResultado,
+  };
+})();
+</script>
+
+<!-- ==========================================================
+     BLOCO 2 — CONFIGURAÇÃO DE EXEMPLO
+     Dados genéricos embutidos, usados só quando o telemóvel ainda não
+     tem nenhuma configuração real. Códigos e fornecedores fictícios de
+     propósito: o repositório é público.
+     ========================================================== */
+-->
+<script>
+(function () {
+  'use strict';
+
+  // Tabela de origem: valores em UNIDADES POR NÍVEL, tal como vinham na
+  // folha antiga. `null` = esse nível não existe para este artigo.
+  const TABELA_FORNECEDOR_A = [
+    { ordem: 10, codigo: '0001', nome: 'Fralda 13-20 Kg',   unidadesPalete: null, unidadesFiada: 756,  unidadesCaixa: 126, unidadesPacote: 21 },
+    { ordem: 20, codigo: '0002', nome: 'Fralda 17-28 Kg',   unidadesPalete: null, unidadesFiada: 720,  unidadesCaixa: 120, unidadesPacote: 20 },
+    { ordem: 30, codigo: '0003', nome: 'Fralda S',          unidadesPalete: 2880, unidadesFiada: 720,  unidadesCaixa: 120, unidadesPacote: 30 },
+    { ordem: 40, codigo: '0004', nome: 'Fralda M',          unidadesPalete: 2880, unidadesFiada: 720,  unidadesCaixa: 120, unidadesPacote: 30 },
+    { ordem: 50, codigo: '0005', nome: 'Fralda L',          unidadesPalete: 2880, unidadesFiada: 720,  unidadesCaixa: 120, unidadesPacote: 30 },
+    { ordem: 60, codigo: '0006', nome: 'Fralda XL',         unidadesPalete: 2400, unidadesFiada: 600,  unidadesCaixa: 100, unidadesPacote: 25 },
+    { ordem: 70, codigo: '0007', nome: 'Fralda XXL',        unidadesPalete: 2400, unidadesFiada: 600,  unidadesCaixa: 100, unidadesPacote: 25 },
+    { ordem: 80, codigo: '0008', nome: 'Cueca Fralda S',    unidadesPalete: null, unidadesFiada: 336,  unidadesCaixa: 84,  unidadesPacote: 14 },
+    { ordem: 90, codigo: '0009', nome: 'Cueca Fralda M',    unidadesPalete: 2400, unidadesFiada: 480,  unidadesCaixa: 80,  unidadesPacote: 20 },
+    { ordem: 100, codigo: '0010', nome: 'Cueca Fralda L',   unidadesPalete: 1152, unidadesFiada: 288,  unidadesCaixa: 48,  unidadesPacote: 12 },
+    { ordem: 110, codigo: '0011', nome: 'Cueca Fralda XL',  unidadesPalete: 1680, unidadesFiada: 240,  unidadesCaixa: 40,  unidadesPacote: 10 },
+    { ordem: 120, codigo: '0012', nome: 'Pensos Femininos', unidadesPalete: null, unidadesFiada: 1536, unidadesCaixa: 192, unidadesPacote: 24 },
+    { ordem: 130, codigo: '0013', nome: 'Pensos Masculino', unidadesPalete: null, unidadesFiada: 1440, unidadesCaixa: 120, unidadesPacote: 20 },
+  ];
+
+  // Fornecedor B só existe para a Fralda XL (código 0006), com uma
+  // configuração diferente — é o caso que a app existe para não confundir.
+  const FRALDA_XL_FORNECEDOR_B = {
+    unidades_por_pacote: 20, pacotes_por_caixa: 4, caixas_por_fiada: 6, fiadas_por_palete: 3,
+  };
+
+  const avisosConversao = [];
+
+  const artigos = TABELA_FORNECEDOR_A.map((linha) => {
+    const convertido = Calculo.converterNiveisParaMultiplicadores({
+      unidadesPacote: linha.unidadesPacote,
+      unidadesCaixa: linha.unidadesCaixa,
+      unidadesFiada: linha.unidadesFiada,
+      unidadesPalete: linha.unidadesPalete,
+    });
+    if (convertido.avisos.length > 0) {
+      avisosConversao.push(`${linha.codigo} ${linha.nome}: ${convertido.avisos.join(' ')}`);
+    }
+
+    const fornecedores = [
+      Calculo.construirFornecedor({ id: 'forn_a', nome: 'Fornecedor A', ...convertido }),
+    ];
+    if (linha.codigo === '0006') {
+      fornecedores.push(
+        Calculo.construirFornecedor({ id: 'forn_b', nome: 'Fornecedor B', ...FRALDA_XL_FORNECEDOR_B })
+      );
+    }
+
+    return { codigo: linha.codigo, nome: linha.nome, ordem: linha.ordem, fornecedores };
+  });
+
+  if (avisosConversao.length > 0) {
+    // A configuração de exemplo é fixa e conhecida; se isto disparar,
+    // há um erro de transcrição da tabela, não um caso de uso real.
+    console.error('Configuração de exemplo com divisões não inteiras:', avisosConversao);
+  }
+
+  window.CONFIGURACAO_EXEMPLO = {
+    familias: [
+      { id: 'fraldas', nome: 'Fraldas', artigos },
+    ],
+  };
+})();
+</script>
+
+<!-- ==========================================================
+     BLOCO 3 — TESTES
+     Corre só com ?teste=1. Usa casos reais da folha que a app substitui.
+     ========================================================== */
+-->
+<script>
+(function () {
+  'use strict';
+
+  const TESTES = [];
+  function teste(nome, fn) { TESTES.push({ nome, fn }); }
+
+  function assertIgual(atual, esperado, msg) {
+    if (atual !== esperado) {
+      throw new Error(`${msg ? msg + ' — ' : ''}esperado ${JSON.stringify(esperado)}, obtido ${JSON.stringify(atual)}`);
+    }
+  }
+  function assertVerdadeiro(valor, msg) {
+    if (valor !== true) throw new Error(msg || 'esperava-se verdadeiro');
+  }
+  function assertLanca(fn, msg) {
+    try {
+      fn();
+    } catch (e) {
+      return;
+    }
+    throw new Error(msg || 'esperava-se que a função lançasse um erro, e não lançou');
+  }
+
+  function artigo(codigo) {
+    const familia = window.CONFIGURACAO_EXEMPLO.familias[0];
+    const a = familia.artigos.find((x) => x.codigo === codigo);
+    if (!a) throw new Error(`Artigo de teste ${codigo} não encontrado na configuração de exemplo.`);
+    return a;
+  }
+  function fornecedor(codigo, fornecedorId) {
+    const f = artigo(codigo).fornecedores.find((x) => x.id === fornecedorId);
+    if (!f) throw new Error(`Fornecedor ${fornecedorId} não encontrado no artigo ${codigo}.`);
+    return f;
+  }
+
+  teste('Fralda XL, Fornecedor A: 2 paletes + 2 fiadas + 3 caixas + 1 pacote = 6 325 unidades', () => {
+    const r = Calculo.calcularTotalContagem({ palete: 2, fiada: 2, caixa: 3, pacote: 1 }, fornecedor('0006', 'forn_a'));
+    assertVerdadeiro(r.valido, 'a contagem deveria ser válida');
+    assertIgual(r.total, 6325, 'total da Fralda XL, Fornecedor A');
+  });
+
+  teste('Fralda L: 8 paletes + 3 fiadas + 4 caixas = 25 680 unidades', () => {
+    const r = Calculo.calcularTotalContagem({ palete: 8, fiada: 3, caixa: 4 }, fornecedor('0005', 'forn_a'));
+    assertVerdadeiro(r.valido, 'a contagem deveria ser válida');
+    assertIgual(r.total, 25680, 'total da Fralda L');
+  });
+
+  teste('Cueca Fralda L: 4 caixas + 2 pacotes = 216 unidades', () => {
+    const r = Calculo.calcularTotalContagem({ caixa: 4, pacote: 2 }, fornecedor('0010', 'forn_a'));
+    assertVerdadeiro(r.valido, 'a contagem deveria ser válida');
+    assertIgual(r.total, 216, 'total da Cueca Fralda L');
+  });
+
+  teste('A mesma Fralda XL com Fornecedor A e Fornecedor B dá totais diferentes', () => {
+    const quantidades = { palete: 1 };
+    const totalA = Calculo.calcularTotalContagem(quantidades, fornecedor('0006', 'forn_a')).total;
+    const totalB = Calculo.calcularTotalContagem(quantidades, fornecedor('0006', 'forn_b')).total;
+    assertIgual(totalA, 2400, 'total Fornecedor A');
+    assertIgual(totalB, 1440, 'total Fornecedor B');
+    if (totalA === totalB) throw new Error('os totais deveriam ser diferentes e são iguais');
+  });
+
+  teste('Artigo sem palete (Fralda 13-20 Kg): contar palete dá erro', () => {
+    const r = Calculo.calcularTotalContagem({ palete: 1 }, fornecedor('0001', 'forn_a'));
+    assertVerdadeiro(!r.valido, 'deveria ser inválido');
+    assertVerdadeiro(r.erros.length > 0, 'deveria ter pelo menos um erro');
+  });
+
+  teste('Configuração com buraco na hierarquia é recusada (palete sem fiada)', () => {
+    assertLanca(() => {
+      Calculo.construirFornecedor({
+        id: 'forn_furado', nome: 'Fornecedor Furado',
+        unidades_por_pacote: 10, pacotes_por_caixa: 4,
+        caixas_por_fiada: null, fiadas_por_palete: 3,
+      });
+    }, 'deveria recusar palete sem fiada');
+  });
+
+  teste('Várias contagens do mesmo artigo somam', () => {
+    const f = fornecedor('0006', 'forn_a');
+    const r = Calculo.calcularTotalArtigo([
+      { quantidades: { pacote: 1 }, fornecedor: f },
+      { quantidades: { caixa: 1 }, fornecedor: f },
+    ]);
+    assertVerdadeiro(r.valido, 'deveria ser válido');
+    assertIgual(r.total, 125, '25 (1 pacote) + 100 (1 caixa)');
+  });
+
+  teste('O resultado sai com os 13 artigos, pela ordem da configuração, com 0 nos não contados', () => {
+    const familia = window.CONFIGURACAO_EXEMPLO.familias[0];
+    const resultado = Calculo.gerarResultado(familia, {
+      '0006': [{ fornecedorId: 'forn_a', quantidades: { palete: 1 } }],
+    });
+    assertIgual(resultado.length, 13, 'número de artigos no resultado');
+    for (let i = 1; i < resultado.length; i++) {
+      assertVerdadeiro(resultado[i].ordem > resultado[i - 1].ordem, 'a ordem tem de ser crescente e seguir a configuração');
+    }
+    const naoContado = resultado.find((r) => r.codigo === '0001');
+    assertIgual(naoContado.total, 0, 'artigo não contado deveria ter total 0');
+    const contado = resultado.find((r) => r.codigo === '0006');
+    assertIgual(contado.total, 2400, 'artigo contado deveria ter o total certo');
+  });
+
+  teste('A conversão de unidades-por-nível para multiplicadores fecha em número inteiro nos 13 artigos', () => {
+    const familia = window.CONFIGURACAO_EXEMPLO.familias[0];
+    assertIgual(familia.artigos.length, 13, 'a configuração de exemplo deveria ter 13 artigos');
+    // Se algum multiplicador não fechasse em inteiro, converterNiveisParaMultiplicadores
+    // teria posto avisos, e o bloco de configuração já os teria mandado para a consola.
+    for (const a of familia.artigos) {
+      for (const f of a.fornecedores) {
+        for (const chave of ['pacotes_por_caixa', 'caixas_por_fiada', 'fiadas_por_palete']) {
+          const v = f[chave];
+          if (v != null) assertVerdadeiro(Number.isInteger(v), `${a.codigo} ${f.nome} ${chave} deveria ser inteiro, é ${v}`);
+        }
+      }
+    }
+  });
+
+  window.TESTES = TESTES;
+})();
+</script>
+
+<!-- ==========================================================
+     BLOCO 4 — INTERFACE
+     Só isto lê o DOM. Nada aqui contém regras de negócio.
+     ========================================================== */
+-->
 <body>
-  <h1>Contagens</h1>
-  <p id="data"></p>
+  <div id="app"></div>
   <script>
-    document.getElementById('data').textContent =
-      new Date().toLocaleDateString('pt-PT', { year: 'numeric', month: 'long', day: 'numeric' });
+  (function () {
+    'use strict';
+
+    const app = document.getElementById('app');
+    const modoTeste = new URLSearchParams(window.location.search).get('teste') === '1';
+
+    if (!modoTeste) {
+      app.innerHTML = `
+        <div class="inicial">
+          <h1>Contagens</h1>
+          <p>${new Date().toLocaleDateString('pt-PT', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+        </div>
+      `;
+      return;
+    }
+
+    const resultados = window.TESTES.map(({ nome, fn }) => {
+      try {
+        fn();
+        return { nome, ok: true };
+      } catch (e) {
+        return { nome, ok: false, motivo: e.message };
+      }
+    });
+
+    const falhas = resultados.filter((r) => !r.ok).length;
+
+    app.innerHTML = `
+      <div class="testes">
+        <h1>Testes</h1>
+        <p class="resumo">${resultados.length - falhas} / ${resultados.length} a passar</p>
+        <ul>
+          ${resultados.map((r) => `
+            <li class="${r.ok ? 'ok' : 'falha'}">
+              ${r.ok ? '✓' : '✗'} ${r.nome}
+              ${r.ok ? '' : `<span class="motivo">${r.motivo}</span>`}
+            </li>
+          `).join('')}
+        </ul>
+      </div>
+    `;
+  })();
   </script>
 </body>
 </html>
