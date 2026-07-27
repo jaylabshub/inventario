@@ -48,25 +48,32 @@
 
   .secao-titulo { font-size: 1rem; color: #555; margin: 0 0 0.6rem; }
   .historico-vazio { color: #777; text-align: center; padding: 2rem 0; }
-  .historico-lista { display: flex; flex-direction: column; gap: 0.5rem; }
-  .historico-item {
-    display: flex; align-items: center; justify-content: space-between; gap: 0.4rem;
-    border: 1px solid #ddd; border-radius: 8px; padding: 0.5rem 0.6rem;
-    background: #fff;
+
+  .abas { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+  .aba {
+    flex: 1; min-height: 44px; border: 1px solid #ccc; border-radius: 6px;
+    background: #f7f7f7; font-size: 0.95rem;
   }
-  .historico-item.erro { border-color: #a33; }
+  .aba.ativa { background: #2563eb; color: #fff; border-color: #2563eb; font-weight: bold; }
+
+  .tabela-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 1rem; }
+  .tabela { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+  .tabela th, .tabela td {
+    padding: 0.5rem 0.6rem; text-align: right; border-bottom: 1px solid #eee; white-space: nowrap;
+  }
+  .tabela th:first-child, .tabela td:first-child { text-align: left; }
+  .tabela thead th { color: #555; font-weight: bold; border-bottom: 2px solid #ccc; }
+  .tabela tfoot td { font-weight: bold; border-top: 2px solid #ccc; border-bottom: none; }
+  .tabela tr.erro { background: #fdeaea; }
+  .celula-total { font-weight: bold; }
+  .celula-total.erro { color: #a33; }
   .historico-abrir {
-    flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start;
-    gap: 0.1rem; border: none; background: none; text-align: left; padding: 0.4rem;
-    min-height: 48px; justify-content: center;
+    border: none; background: none; font: inherit; color: inherit; padding: 0.3rem 0;
+    text-align: left; min-height: 44px;
   }
-  .historico-artigo { font-weight: bold; }
-  .historico-detalhe { font-size: 0.85rem; color: #666; }
-  .historico-total { font-weight: bold; white-space: nowrap; font-size: 0.95rem; }
-  .historico-total.erro { color: #a33; }
   .historico-remover {
-    min-width: 44px; min-height: 44px; border: none; background: none;
-    color: #a33; font-size: 1.1rem; flex: 0 0 auto;
+    min-width: 36px; min-height: 36px; border: none; background: none;
+    color: #a33; font-size: 1rem;
   }
 
   .campo { margin-bottom: 0.9rem; }
@@ -640,7 +647,9 @@
         document.getElementById('btn-voltar').addEventListener('click', () => history.back());
       }
 
-      // ---------- ecrã INÍCIO (histórico) ----------
+      // ---------- ecrã INÍCIO (histórico / totais) ----------
+
+      let abaInicio = 'historico';
 
       function linhasHistorico() {
         const linhas = [];
@@ -655,44 +664,106 @@
         return linhas;
       }
 
-      function renderInicio() {
+      function tabelaHistoricoHTML() {
         const linhas = linhasHistorico();
+        if (linhas.length === 0) return `<p class="historico-vazio">Ainda não há nenhuma contagem.</p>`;
+        const celula = (fornecedor, linha, nivel) => {
+          if (!fornecedor || Calculo.unidadesPorNivel(fornecedor)[nivel] == null) return '–';
+          return formatarNumero(linha.quantidades[nivel] || 0);
+        };
+        return `
+          <div class="tabela-wrap">
+            <table class="tabela">
+              <thead>
+                <tr>
+                  <th>Artigo</th><th>Fornecedor</th><th>Pacotes</th><th>Caixas</th><th>Fiadas</th><th>Paletes</th><th>Total</th><th></th>
+                </tr>
+              </thead>
+              <tbody>
+                ${linhas.map(({ artigo, linha }) => {
+                  const r = subtotalLinha(artigo, linha);
+                  return `
+                    <tr class="${r.valido ? '' : 'erro'}" data-codigo="${artigo.codigo}" data-id="${linha.id}">
+                      <td><button type="button" class="historico-abrir">${artigo.codigo} · ${escaparTexto(artigo.nome)}</button></td>
+                      <td>${r.fornecedor ? escaparTexto(r.fornecedor.nome) : ''}</td>
+                      <td>${celula(r.fornecedor, linha, 'pacote')}</td>
+                      <td>${celula(r.fornecedor, linha, 'caixa')}</td>
+                      <td>${celula(r.fornecedor, linha, 'fiada')}</td>
+                      <td>${celula(r.fornecedor, linha, 'palete')}</td>
+                      <td class="celula-total ${r.valido ? '' : 'erro'}">${r.valido ? formatarNumero(r.total) : '⚠'}</td>
+                      <td><button type="button" class="historico-remover" aria-label="Remover esta contagem">✕</button></td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      function tabelaTotaisHTML() {
+        const contagensPorCodigo = {};
+        for (const artigo of familia.artigos) {
+          const dados = estado[artigo.codigo];
+          if (!dados) continue;
+          contagensPorCodigo[artigo.codigo] = dados.contagens
+            .filter(linhaTemConteudo)
+            .map((linha) => ({ fornecedorId: linha.fornecedorId, quantidades: linha.quantidades }));
+        }
+        const resultado = Calculo.gerarResultado(familia, contagensPorCodigo);
+        const tudoValido = resultado.every((r) => r.valido);
+        const totalGeral = resultado.reduce((soma, r) => soma + r.total, 0);
+        return `
+          <div class="tabela-wrap">
+            <table class="tabela">
+              <thead><tr><th>Artigo</th><th>Total</th></tr></thead>
+              <tbody>
+                ${resultado.map((r) => `
+                  <tr class="${r.valido ? '' : 'erro'}">
+                    <td>${r.codigo} · ${escaparTexto(r.nome)}</td>
+                    <td class="celula-total ${r.valido ? '' : 'erro'}">${r.valido ? formatarNumero(r.total) : '⚠'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+              <tfoot>
+                <tr><td>Total geral</td><td class="celula-total ${tudoValido ? '' : 'erro'}">${tudoValido ? formatarNumero(totalGeral) : '⚠ há erros por resolver'}</td></tr>
+              </tfoot>
+            </table>
+          </div>
+        `;
+      }
+
+      function renderInicio() {
         app.innerHTML = `
           <div class="topo"><h1>${escaparTexto(familia.nome)}</h1></div>
           <button type="button" class="btn-primario" id="btn-nova-contagem">+ Nova contagem</button>
-          <p class="secao-titulo">Histórico</p>
-          ${linhas.length === 0
-            ? `<p class="historico-vazio">Ainda não há nenhuma contagem.</p>`
-            : `<div class="historico-lista">${linhas.map(({ artigo, linha }) => {
-                const r = subtotalLinha(artigo, linha);
-                return `
-                  <div class="historico-item ${r.valido ? '' : 'erro'}" data-codigo="${artigo.codigo}" data-id="${linha.id}">
-                    <button type="button" class="historico-abrir">
-                      <span class="historico-artigo">${artigo.codigo} · ${escaparTexto(artigo.nome)}</span>
-                      <span class="historico-detalhe">${r.fornecedor ? escaparTexto(r.fornecedor.nome) : ''}</span>
-                    </button>
-                    <span class="historico-total ${r.valido ? '' : 'erro'}">${r.valido ? `${formatarNumero(r.total)} un` : '⚠ erro'}</span>
-                    <button type="button" class="historico-remover" aria-label="Remover esta contagem">✕</button>
-                  </div>
-                `;
-              }).join('')}</div>`
-          }
+          <div class="abas">
+            <button type="button" class="aba ${abaInicio === 'historico' ? 'ativa' : ''}" data-aba="historico">Histórico</button>
+            <button type="button" class="aba ${abaInicio === 'totais' ? 'ativa' : ''}" data-aba="totais">Totais</button>
+          </div>
+          ${abaInicio === 'historico' ? tabelaHistoricoHTML() : tabelaTotaisHTML()}
         `;
 
         document.getElementById('btn-nova-contagem').addEventListener('click', () => {
           irPara({ ecra: 'contagem', passo: 'artigo' });
         });
+        app.querySelectorAll('.aba').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            abaInicio = btn.dataset.aba;
+            renderInicio();
+          });
+        });
         app.querySelectorAll('.historico-abrir').forEach((btn) => {
           btn.addEventListener('click', () => {
-            const item = btn.closest('.historico-item');
-            irPara({ ecra: 'contagem', passo: 'quantidades', codigo: item.dataset.codigo, id: item.dataset.id });
+            const linhaEl = btn.closest('tr');
+            irPara({ ecra: 'contagem', passo: 'quantidades', codigo: linhaEl.dataset.codigo, id: linhaEl.dataset.id });
           });
         });
         app.querySelectorAll('.historico-remover').forEach((btn) => {
           btn.addEventListener('click', () => {
-            const item = btn.closest('.historico-item');
-            const dados = dadosArtigo(item.dataset.codigo);
-            dados.contagens = dados.contagens.filter((c) => c.id !== item.dataset.id);
+            const linhaEl = btn.closest('tr');
+            const dados = dadosArtigo(linhaEl.dataset.codigo);
+            dados.contagens = dados.contagens.filter((c) => c.id !== linhaEl.dataset.id);
             guardarDados();
             renderInicio();
           });
