@@ -27,8 +27,15 @@
   .topo { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.2rem; }
   .topo h1 { font-size: 1.3rem; margin: 0; }
   .btn-voltar {
+    display: inline-flex; align-items: center; justify-content: center;
     min-width: 44px; min-height: 44px; border: none; background: none;
-    font-size: 1.6rem; padding: 0; line-height: 1;
+    font-size: 1.6rem; padding: 0; line-height: 1; text-decoration: none; color: inherit;
+  }
+  .btn-config {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 44px; min-height: 44px; margin-left: auto;
+    border: 1px solid #ddd; border-radius: 8px; background: #fff;
+    font-size: 1.2rem; text-decoration: none; color: inherit;
   }
 
   .btn-primario {
@@ -795,7 +802,10 @@
 
       function renderInicio() {
         app.innerHTML = `
-          <div class="topo"><h1>Contagens</h1></div>
+          <div class="topo">
+            <h1>Contagens</h1>
+            <a href="?admin=1" class="btn-config" aria-label="Configuração">⚙</a>
+          </div>
           <button type="button" class="btn-primario" id="btn-nova-contagem">+ Nova contagem</button>
           <div class="abas">
             <button type="button" class="aba ${abaInicio === 'historico' ? 'ativa' : ''}" data-aba="historico">Histórico</button>
@@ -1088,7 +1098,10 @@
       function render() {
         const ordenados = artigosOrdenados();
         app.innerHTML = `
-          <div class="topo"><h1>Configuração — ${escaparTexto(familia.nome)}</h1></div>
+          <div class="topo">
+            <a href="./" class="btn-voltar" aria-label="Voltar à contagem">‹</a>
+            <h1>Configuração — ${escaparTexto(familia.nome)}</h1>
+          </div>
           <div id="erro-admin"></div>
           <p class="secao-titulo">Artigos (as setas mudam a ordem em "Totais")</p>
           <div class="lista-config">
