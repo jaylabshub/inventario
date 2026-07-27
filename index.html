@@ -9,7 +9,9 @@
   body {
     font-family: system-ui, sans-serif;
     margin: 0;
-    padding: 1.5rem;
+    padding: 1.25rem;
+    background: #eef0f4;
+    color: #1f2430;
   }
   .testes h1 { font-size: 1.3rem; }
   .testes ul { list-style: none; padding: 0; }
@@ -45,7 +47,13 @@
   }
   .btn-secundario {
     display: block; width: 100%; min-height: 48px; margin-top: 0.6rem;
-    border: 1px dashed #999; border-radius: 6px; background: none; font-size: 0.95rem;
+    border: 1px solid #d1d5db; border-radius: 8px; background: #fff; color: #374151;
+    font-size: 0.95rem;
+  }
+  .btn-adicionar {
+    display: block; width: 100%; min-height: 48px; margin-top: 0.6rem;
+    border: 1.5px dashed #93a5c9; border-radius: 8px; background: #f5f8ff;
+    color: #2563eb; font-weight: bold; font-size: 0.95rem;
   }
   .btn-concluir {
     display: block; width: 100%; min-height: 52px; margin-top: 1rem;
@@ -53,17 +61,28 @@
     font-size: 1.05rem; font-weight: bold;
   }
 
-  .secao-titulo { font-size: 1rem; color: #555; margin: 0 0 0.6rem; }
+  .secao-titulo {
+    font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    color: #6b7280; margin: 1.6rem 0 0.6rem;
+  }
+  .secao-titulo:first-child { margin-top: 0; }
   .historico-vazio { color: #777; text-align: center; padding: 2rem 0; }
 
-  .abas { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
-  .aba {
-    flex: 1; min-height: 44px; border: 1px solid #ccc; border-radius: 6px;
-    background: #f7f7f7; font-size: 0.95rem;
+  .abas {
+    display: flex; gap: 0.25rem; margin-bottom: 1rem;
+    background: #e2e5ea; border-radius: 8px; padding: 0.25rem;
   }
-  .aba.ativa { background: #2563eb; color: #fff; border-color: #2563eb; font-weight: bold; }
+  .aba {
+    flex: 1; min-height: 40px; border: none; border-radius: 6px;
+    background: transparent; color: #555; font-size: 0.9rem;
+  }
+  .aba.ativa { background: #fff; color: #1f2430; font-weight: bold; box-shadow: 0 1px 2px rgba(20, 25, 40, 0.1); }
 
-  .tabela-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 1rem; }
+  .tabela-wrap {
+    overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 1rem;
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(20, 25, 40, 0.06); padding: 0.2rem 0.5rem;
+  }
   .tabela { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
   .tabela th, .tabela td {
     padding: 0.5rem 0.6rem; text-align: right; border-bottom: 1px solid #eee; white-space: nowrap;
@@ -86,43 +105,61 @@
   .lista-selecao { display: flex; flex-direction: column; gap: 0.5rem; }
   .item-selecao {
     display: block; width: 100%; min-height: 52px; text-align: left;
-    border: 1px solid #ddd; border-radius: 8px; background: #fff;
+    border: 1px solid #e5e7eb; border-radius: 8px; background: #fff;
     padding: 0.6rem 0.9rem; font-size: 1rem;
+    box-shadow: 0 1px 2px rgba(20, 25, 40, 0.05);
   }
   .item-selecao:active { background: #f0f4fb; }
-  .item-selecao.novo { border-style: dashed; border-color: #999; color: #2563eb; font-weight: bold; }
+  .item-selecao.novo {
+    border-style: dashed; border-color: #93a5c9; background: #f5f8ff;
+    color: #2563eb; font-weight: bold; box-shadow: none;
+  }
 
-  .lista-config { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
+  .lista-config { display: flex; flex-direction: column; gap: 0.7rem; margin-bottom: 1rem; }
   .config-artigo {
-    border: 1px solid #ddd; border-radius: 8px; padding: 0.5rem; background: #fff;
+    border: 1px solid #e5e7eb; border-radius: 10px; padding: 0.7rem; background: #fff;
+    box-shadow: 0 1px 3px rgba(20, 25, 40, 0.06);
   }
   .config-linha { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
   .config-setas { display: flex; flex-direction: column; gap: 0.2rem; flex: 0 0 auto; }
   .config-setas button {
-    min-width: 36px; min-height: 32px; border: 1px solid #ccc; border-radius: 4px;
+    min-width: 36px; min-height: 32px; border: 1px solid #d1d5db; border-radius: 4px;
     background: #f7f7f7; font-size: 0.8rem;
   }
   .config-setas button:disabled { opacity: 0.3; }
   .config-linha input {
-    flex: 1; min-width: 0; min-height: 44px; border: 1px solid #ccc; border-radius: 6px;
+    flex: 1; min-width: 0; min-height: 44px; border: 1px solid #d1d5db; border-radius: 6px;
     padding: 0 0.5rem; font-size: 0.95rem;
   }
   .config-codigo { flex: 0 0 4.5rem; }
 
-  .btn-toggle-fornecedores { text-align: left; font-size: 0.9rem; }
-  .lista-fornecedores-admin { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem; }
+  .btn-toggle-fornecedores {
+    display: block; width: 100%; min-height: 44px; margin-top: 0.3rem;
+    text-align: left; font-size: 0.85rem; font-weight: bold; color: #444;
+    border: none; border-radius: 6px; background: #f3f4f6; padding: 0 0.7rem;
+  }
+  .lista-fornecedores-admin {
+    display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;
+    padding: 0.6rem; background: #f7f9fc; border-radius: 8px;
+  }
   .fornecedor-linha-admin {
     display: flex; align-items: center; gap: 0.5rem;
-    border: 1px solid #eee; border-radius: 6px; padding: 0.5rem;
+    border: 1px solid #e3e7ee; border-radius: 6px; padding: 0.5rem; background: #fff;
   }
   .fornecedor-linha-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .fornecedor-linha-texto span { font-size: 0.78rem; color: #666; }
   .btn-editar-fornecedor, .btn-eliminar-fornecedor {
-    min-height: 40px; padding: 0 0.6rem; border: 1px solid #ccc; border-radius: 6px;
+    min-height: 40px; padding: 0 0.6rem; border: 1px solid #d1d5db; border-radius: 6px;
     background: #f7f7f7; font-size: 0.85rem; flex: 0 0 auto;
   }
-  .btn-eliminar-fornecedor { color: #a33; }
-  .formulario-fornecedor-admin { border: 1px solid #ddd; border-radius: 8px; padding: 0.6rem; }
+  .btn-eliminar-fornecedor { color: #a33; border-color: #eccaca; background: #fdf4f4; }
+  .formulario-fornecedor-admin {
+    border: 1px solid #cddafd; border-radius: 8px; padding: 0.6rem; background: #f8faff;
+  }
+  .secao-cartao {
+    border: 1px solid #e5e7eb; border-radius: 10px; padding: 0.8rem;
+    background: #fff; box-shadow: 0 1px 3px rgba(20, 25, 40, 0.06);
+  }
 
   .campo { margin-bottom: 0.9rem; }
   .campo label { display: block; font-size: 0.9rem; color: #444; margin-bottom: 0.3rem; }
@@ -1164,7 +1201,7 @@
         const aberto = artigosComFornecedoresAbertos.has(artigo.codigo);
         const aCriar = fornecedorEmEdicao && fornecedorEmEdicao.codigoArtigo === artigo.codigo && fornecedorEmEdicao.fornecedorId === null;
         return `
-          <button type="button" class="btn-secundario btn-toggle-fornecedores" data-codigo="${artigo.codigo}">
+          <button type="button" class="btn-toggle-fornecedores" data-codigo="${artigo.codigo}">
             ${aberto ? '▾' : '▸'} Fornecedores (${artigo.fornecedores.length})
           </button>
           ${aberto ? `
@@ -1172,7 +1209,7 @@
               ${artigo.fornecedores.map((f) => fornecedorLinhaHTML(artigo, f)).join('')}
               ${aCriar
                 ? formularioFornecedorHTML(artigo, null)
-                : `<button type="button" class="btn-secundario btn-add-fornecedor" data-codigo="${artigo.codigo}">+ Adicionar fornecedor</button>`
+                : `<button type="button" class="btn-adicionar btn-add-fornecedor" data-codigo="${artigo.codigo}">+ Adicionar fornecedor</button>`
               }
             </div>
           ` : ''}
@@ -1203,16 +1240,18 @@
               </div>
             `).join('')}
           </div>
-          <button type="button" class="btn-secundario" id="btn-mostrar-novo">+ Adicionar artigo</button>
-          <div id="bloco-novo-artigo" style="display:none">
+          <button type="button" class="btn-adicionar" id="btn-mostrar-novo">+ Adicionar artigo</button>
+          <div id="bloco-novo-artigo" class="secao-cartao" style="display:none; margin-top: 0.6rem;">
             <div class="campo"><label for="novo-admin-codigo">Código</label><input type="text" id="novo-admin-codigo"></div>
             <div class="campo"><label for="novo-admin-nome">Nome</label><input type="text" id="novo-admin-nome"></div>
-            <button type="button" class="btn-primario" id="btn-criar-admin-artigo">Adicionar</button>
+            <button type="button" class="btn-primario" id="btn-criar-admin-artigo" style="margin-bottom:0">Adicionar</button>
           </div>
 
           <p class="secao-titulo">Configuração deste telemóvel</p>
-          <button type="button" class="btn-secundario" id="btn-descarregar">Descarregar configuração</button>
-          <button type="button" class="btn-secundario" id="btn-importar">Importar configuração</button>
+          <div class="secao-cartao">
+            <button type="button" class="btn-secundario" id="btn-descarregar" style="margin-top:0">Descarregar configuração</button>
+            <button type="button" class="btn-secundario" id="btn-importar">Importar configuração</button>
+          </div>
           <input type="file" accept="application/json" id="input-importar" style="display:none">
         `;
         ligarEventos();
