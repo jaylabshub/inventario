@@ -65,16 +65,42 @@
   .tabela thead th { color: #555; font-weight: bold; border-bottom: 2px solid #ccc; }
   .tabela tfoot td { font-weight: bold; border-top: 2px solid #ccc; border-bottom: none; }
   .tabela tr.erro { background: #fdeaea; }
+  .tabela tr.linha-clicavel, .tabela tr.expansivel { cursor: pointer; }
+  .tabela tr.linha-clicavel:active, .tabela tr.expansivel:active { background: #f0f4fb; }
+  .tabela tr.subtotal-fornecedor td { color: #666; font-size: 0.8rem; }
+  .tabela tr.subtotal-fornecedor td:first-child { padding-left: 1.6rem; }
   .celula-total { font-weight: bold; }
   .celula-total.erro { color: #a33; }
-  .historico-abrir {
-    border: none; background: none; font: inherit; color: inherit; padding: 0.3rem 0;
-    text-align: left; min-height: 44px;
-  }
   .historico-remover {
     min-width: 36px; min-height: 36px; border: none; background: none;
     color: #a33; font-size: 1rem;
   }
+
+  .lista-selecao { display: flex; flex-direction: column; gap: 0.5rem; }
+  .item-selecao {
+    display: block; width: 100%; min-height: 52px; text-align: left;
+    border: 1px solid #ddd; border-radius: 8px; background: #fff;
+    padding: 0.6rem 0.9rem; font-size: 1rem;
+  }
+  .item-selecao:active { background: #f0f4fb; }
+  .item-selecao.novo { border-style: dashed; border-color: #999; color: #2563eb; font-weight: bold; }
+
+  .lista-config { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
+  .config-linha {
+    display: flex; align-items: center; gap: 0.5rem;
+    border: 1px solid #ddd; border-radius: 8px; padding: 0.5rem; background: #fff;
+  }
+  .config-setas { display: flex; flex-direction: column; gap: 0.2rem; flex: 0 0 auto; }
+  .config-setas button {
+    min-width: 36px; min-height: 32px; border: 1px solid #ccc; border-radius: 4px;
+    background: #f7f7f7; font-size: 0.8rem;
+  }
+  .config-setas button:disabled { opacity: 0.3; }
+  .config-linha input {
+    flex: 1; min-width: 0; min-height: 44px; border: 1px solid #ccc; border-radius: 6px;
+    padding: 0 0.5rem; font-size: 0.95rem;
+  }
+  .config-codigo { flex: 0 0 4.5rem; }
 
   .campo { margin-bottom: 0.9rem; }
   .campo label { display: block; font-size: 0.9rem; color: #444; margin-bottom: 0.3rem; }
@@ -530,10 +556,12 @@
     'use strict';
 
     const app = document.getElementById('app');
-    const modoTeste = new URLSearchParams(window.location.search).get('teste') === '1';
+    const parametros = new URLSearchParams(window.location.search);
 
-    if (modoTeste) {
+    if (parametros.get('teste') === '1') {
       iniciarEcraDeTestes();
+    } else if (parametros.get('admin') === '1') {
+      iniciarEcraDeAdministracao();
     } else {
       iniciarEcraDeContagem();
     }
@@ -650,6 +678,7 @@
       // ---------- ecrã INÍCIO (histórico / totais) ----------
 
       let abaInicio = 'historico';
+      let artigosExpandidos = new Set();
 
       function linhasHistorico() {
         const linhas = [];
@@ -662,6 +691,24 @@
           }
         }
         return linhas;
+      }
+
+      // Para cada fornecedor com quem o artigo foi contado, soma as contagens
+      // desse fornecedor. Usado para abrir o detalhe por fornecedor em Totais.
+      function totaisPorFornecedor(artigo) {
+        const dados = estado[artigo.codigo];
+        if (!dados) return [];
+        const porFornecedor = new Map();
+        for (const linha of dados.contagens) {
+          if (!linhaTemConteudo(linha)) continue;
+          const r = subtotalLinha(artigo, linha);
+          if (!r.fornecedor) continue;
+          const atual = porFornecedor.get(r.fornecedor.id) || { fornecedor: r.fornecedor, total: 0, valido: true };
+          atual.total += r.total;
+          atual.valido = atual.valido && r.valido;
+          porFornecedor.set(r.fornecedor.id, atual);
+        }
+        return [...porFornecedor.values()];
       }
 
       function tabelaHistoricoHTML() {
@@ -683,8 +730,8 @@
                 ${linhas.map(({ artigo, linha }) => {
                   const r = subtotalLinha(artigo, linha);
                   return `
-                    <tr class="${r.valido ? '' : 'erro'}" data-codigo="${artigo.codigo}" data-id="${linha.id}">
-                      <td><button type="button" class="historico-abrir">${artigo.codigo} · ${escaparTexto(artigo.nome)}</button></td>
+                    <tr class="linha-clicavel ${r.valido ? '' : 'erro'}" data-codigo="${artigo.codigo}" data-id="${linha.id}">
+                      <td>${artigo.codigo} · ${escaparTexto(artigo.nome)}</td>
                       <td>${r.fornecedor ? escaparTexto(r.fornecedor.nome) : ''}</td>
                       <td>${celula(r.fornecedor, linha, 'pacote')}</td>
                       <td>${celula(r.fornecedor, linha, 'caixa')}</td>
@@ -718,12 +765,25 @@
             <table class="tabela">
               <thead><tr><th>Artigo</th><th>Total</th></tr></thead>
               <tbody>
-                ${resultado.map((r) => `
-                  <tr class="${r.valido ? '' : 'erro'}">
-                    <td>${r.codigo} · ${escaparTexto(r.nome)}</td>
-                    <td class="celula-total ${r.valido ? '' : 'erro'}">${r.valido ? formatarNumero(r.total) : '⚠'}</td>
-                  </tr>
-                `).join('')}
+                ${resultado.map((r) => {
+                  const artigo = artigoPorCodigo(r.codigo);
+                  const porFornecedor = totaisPorFornecedor(artigo);
+                  const expansivel = porFornecedor.length > 1;
+                  const aberto = artigosExpandidos.has(r.codigo);
+                  const linhaPrincipal = `
+                    <tr class="${r.valido ? '' : 'erro'} ${expansivel ? 'expansivel' : ''}" data-codigo="${r.codigo}">
+                      <td>${expansivel ? (aberto ? '▾ ' : '▸ ') : ''}${r.codigo} · ${escaparTexto(r.nome)}</td>
+                      <td class="celula-total ${r.valido ? '' : 'erro'}">${r.valido ? formatarNumero(r.total) : '⚠'}</td>
+                    </tr>
+                  `;
+                  const linhasFornecedor = (expansivel && aberto) ? porFornecedor.map((pf) => `
+                    <tr class="subtotal-fornecedor">
+                      <td>↳ ${escaparTexto(pf.fornecedor.nome)}</td>
+                      <td class="celula-total ${pf.valido ? '' : 'erro'}">${pf.valido ? formatarNumero(pf.total) : '⚠'}</td>
+                    </tr>
+                  `).join('') : '';
+                  return linhaPrincipal + linhasFornecedor;
+                }).join('')}
               </tbody>
               <tfoot>
                 <tr><td>Total geral</td><td class="celula-total ${tudoValido ? '' : 'erro'}">${tudoValido ? formatarNumero(totalGeral) : '⚠ há erros por resolver'}</td></tr>
@@ -735,7 +795,7 @@
 
       function renderInicio() {
         app.innerHTML = `
-          <div class="topo"><h1>${escaparTexto(familia.nome)}</h1></div>
+          <div class="topo"><h1>Contagens</h1></div>
           <button type="button" class="btn-primario" id="btn-nova-contagem">+ Nova contagem</button>
           <div class="abas">
             <button type="button" class="aba ${abaInicio === 'historico' ? 'ativa' : ''}" data-aba="historico">Histórico</button>
@@ -753,21 +813,33 @@
             renderInicio();
           });
         });
-        app.querySelectorAll('.historico-abrir').forEach((btn) => {
-          btn.addEventListener('click', () => {
-            const linhaEl = btn.closest('tr');
-            irPara({ ecra: 'contagem', passo: 'quantidades', codigo: linhaEl.dataset.codigo, id: linhaEl.dataset.id });
+        if (abaInicio === 'historico') {
+          app.querySelectorAll('tr.linha-clicavel').forEach((tr) => {
+            tr.addEventListener('click', (e) => {
+              if (e.target.closest('.historico-remover')) return;
+              irPara({ ecra: 'contagem', passo: 'quantidades', codigo: tr.dataset.codigo, id: tr.dataset.id });
+            });
           });
-        });
-        app.querySelectorAll('.historico-remover').forEach((btn) => {
-          btn.addEventListener('click', () => {
-            const linhaEl = btn.closest('tr');
-            const dados = dadosArtigo(linhaEl.dataset.codigo);
-            dados.contagens = dados.contagens.filter((c) => c.id !== linhaEl.dataset.id);
-            guardarDados();
-            renderInicio();
+          app.querySelectorAll('.historico-remover').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const linhaEl = btn.closest('tr');
+              const dados = dadosArtigo(linhaEl.dataset.codigo);
+              dados.contagens = dados.contagens.filter((c) => c.id !== linhaEl.dataset.id);
+              guardarDados();
+              renderInicio();
+            });
           });
-        });
+        } else {
+          app.querySelectorAll('tr.expansivel').forEach((tr) => {
+            tr.addEventListener('click', () => {
+              const codigo = tr.dataset.codigo;
+              if (artigosExpandidos.has(codigo)) artigosExpandidos.delete(codigo);
+              else artigosExpandidos.add(codigo);
+              renderInicio();
+            });
+          });
+        }
       }
 
       // ---------- passo: escolher artigo ----------
@@ -783,28 +855,24 @@
       function renderPassoArtigo() {
         app.innerHTML = `
           ${topoContagem('Escolher artigo')}
-          <div class="campo">
-            <label for="campo-artigo">Artigo</label>
-            <select id="campo-artigo">
-              <option value="" selected disabled>Escolher…</option>
-              ${artigosOrdenados().map((a) => `<option value="${a.codigo}">${a.codigo} · ${escaparTexto(a.nome)}</option>`).join('')}
-              <option value="__novo__">+ Artigo novo</option>
-            </select>
+          <div class="lista-selecao">
+            ${artigosOrdenados().map((a) => `<button type="button" class="item-selecao" data-codigo="${a.codigo}">${a.codigo} · ${escaparTexto(a.nome)}</button>`).join('')}
+            <button type="button" class="item-selecao novo" id="btn-artigo-novo">+ Artigo novo</button>
           </div>
         `;
         ligarBotaoVoltar();
-        document.getElementById('campo-artigo').addEventListener('change', (e) => {
-          const valor = e.target.value;
-          if (valor === '__novo__') {
-            irPara({ ecra: 'contagem', passo: 'novoArtigo' });
-            return;
-          }
-          const artigo = artigoPorCodigo(valor);
-          if (artigo.fornecedores.length === 1) {
-            abrirQuantidades(artigo.codigo, artigo.fornecedores[0].id);
-          } else {
-            irPara({ ecra: 'contagem', passo: 'fornecedor', codigo: artigo.codigo });
-          }
+        app.querySelectorAll('.item-selecao[data-codigo]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const artigo = artigoPorCodigo(btn.dataset.codigo);
+            if (artigo.fornecedores.length === 1) {
+              abrirQuantidades(artigo.codigo, artigo.fornecedores[0].id);
+            } else {
+              irPara({ ecra: 'contagem', passo: 'fornecedor', codigo: artigo.codigo });
+            }
+          });
+        });
+        document.getElementById('btn-artigo-novo').addEventListener('click', () => {
+          irPara({ ecra: 'contagem', passo: 'novoArtigo' });
         });
       }
 
@@ -845,23 +913,17 @@
         const artigo = artigoPorCodigo(vista.codigo);
         app.innerHTML = `
           ${topoContagem(artigo.nome)}
-          <div class="campo">
-            <label for="campo-fornecedor">Fornecedor</label>
-            <select id="campo-fornecedor">
-              <option value="" selected disabled>Escolher…</option>
-              ${artigo.fornecedores.map((f) => `<option value="${f.id}">${escaparTexto(f.nome)}</option>`).join('')}
-              <option value="__novo__">+ Fornecedor novo</option>
-            </select>
+          <div class="lista-selecao">
+            ${artigo.fornecedores.map((f) => `<button type="button" class="item-selecao" data-id="${f.id}">${escaparTexto(f.nome)}</button>`).join('')}
+            <button type="button" class="item-selecao novo" id="btn-fornecedor-novo">+ Fornecedor novo</button>
           </div>
         `;
         ligarBotaoVoltar();
-        document.getElementById('campo-fornecedor').addEventListener('change', (e) => {
-          const valor = e.target.value;
-          if (valor === '__novo__') {
-            irPara({ ecra: 'contagem', passo: 'novoFornecedor', codigo: artigo.codigo });
-          } else {
-            abrirQuantidades(artigo.codigo, valor);
-          }
+        app.querySelectorAll('.item-selecao[data-id]').forEach((btn) => {
+          btn.addEventListener('click', () => abrirQuantidades(artigo.codigo, btn.dataset.id));
+        });
+        document.getElementById('btn-fornecedor-novo').addEventListener('click', () => {
+          irPara({ ecra: 'contagem', passo: 'novoFornecedor', codigo: artigo.codigo });
         });
       }
 
@@ -1000,6 +1062,187 @@
       }
 
       renderizar();
+    }
+
+    // ---------- ecrã ADMINISTRAÇÃO (?admin=1) ----------
+    // Só quem monta o telemóvel entra aqui. Sem palavra-passe (o código é
+    // público de qualquer forma); cada telemóvel só mexe na sua própria
+    // configuração.
+
+    function iniciarEcraDeAdministracao() {
+      const configuracao = Armazenamento.obterConfiguracao();
+      const familia = configuracao.familias.find((f) => f.id === 'fraldas') || configuracao.familias[0];
+      const estado = Armazenamento.obterContagens(familia.id);
+
+      function guardarConfig() { Armazenamento.guardarConfiguracao(configuracao); }
+      function guardarDados() { Armazenamento.guardarContagens(familia.id, estado); }
+      function artigosOrdenados() { return [...familia.artigos].sort((a, b) => a.ordem - b.ordem); }
+      function escaparTexto(texto) {
+        return String(texto).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      }
+
+      function mostrarErro(msg) {
+        document.getElementById('erro-admin').innerHTML = msg ? `<p class="erro-mensagem">${escaparTexto(msg)}</p>` : '';
+      }
+
+      function render() {
+        const ordenados = artigosOrdenados();
+        app.innerHTML = `
+          <div class="topo"><h1>Configuração — ${escaparTexto(familia.nome)}</h1></div>
+          <div id="erro-admin"></div>
+          <p class="secao-titulo">Artigos (as setas mudam a ordem em "Totais")</p>
+          <div class="lista-config">
+            ${ordenados.map((a, i) => `
+              <div class="config-linha" data-codigo="${a.codigo}">
+                <div class="config-setas">
+                  <button type="button" class="btn-subir" ${i === 0 ? 'disabled' : ''} aria-label="Mover para cima">▲</button>
+                  <button type="button" class="btn-descer" ${i === ordenados.length - 1 ? 'disabled' : ''} aria-label="Mover para baixo">▼</button>
+                </div>
+                <input type="text" class="config-codigo" value="${escaparTexto(a.codigo)}" aria-label="Código">
+                <input type="text" class="config-nome" value="${escaparTexto(a.nome)}" aria-label="Nome">
+              </div>
+            `).join('')}
+          </div>
+          <button type="button" class="btn-secundario" id="btn-mostrar-novo">+ Adicionar artigo</button>
+          <div id="bloco-novo-artigo" style="display:none">
+            <div class="campo"><label for="novo-admin-codigo">Código</label><input type="text" id="novo-admin-codigo"></div>
+            <div class="campo"><label for="novo-admin-nome">Nome</label><input type="text" id="novo-admin-nome"></div>
+            <button type="button" class="btn-primario" id="btn-criar-admin-artigo">Adicionar</button>
+          </div>
+
+          <p class="secao-titulo">Configuração deste telemóvel</p>
+          <button type="button" class="btn-secundario" id="btn-descarregar">Descarregar configuração</button>
+          <button type="button" class="btn-secundario" id="btn-importar">Importar configuração</button>
+          <input type="file" accept="application/json" id="input-importar" style="display:none">
+        `;
+        ligarEventos();
+      }
+
+      function ligarEventos() {
+        app.querySelectorAll('.btn-subir').forEach((btn) => {
+          btn.addEventListener('click', () => mover(btn.closest('.config-linha').dataset.codigo, -1));
+        });
+        app.querySelectorAll('.btn-descer').forEach((btn) => {
+          btn.addEventListener('click', () => mover(btn.closest('.config-linha').dataset.codigo, 1));
+        });
+        app.querySelectorAll('.config-codigo').forEach((input) => {
+          input.addEventListener('change', () => alterarCodigo(input));
+        });
+        app.querySelectorAll('.config-nome').forEach((input) => {
+          input.addEventListener('change', () => alterarNome(input));
+        });
+        document.getElementById('btn-mostrar-novo').addEventListener('click', () => {
+          document.getElementById('bloco-novo-artigo').style.display = '';
+        });
+        document.getElementById('btn-criar-admin-artigo').addEventListener('click', criarArtigo);
+        document.getElementById('btn-descarregar').addEventListener('click', descarregar);
+        document.getElementById('btn-importar').addEventListener('click', () => {
+          document.getElementById('input-importar').click();
+        });
+        document.getElementById('input-importar').addEventListener('change', importar);
+      }
+
+      function mover(codigo, direcao) {
+        const ordenados = artigosOrdenados();
+        const i = ordenados.findIndex((a) => a.codigo === codigo);
+        const j = i + direcao;
+        if (j < 0 || j >= ordenados.length) return;
+        const trocaOrdem = ordenados[i].ordem;
+        ordenados[i].ordem = ordenados[j].ordem;
+        ordenados[j].ordem = trocaOrdem;
+        guardarConfig();
+        render();
+      }
+
+      function alterarCodigo(input) {
+        const codigoAntigo = input.closest('.config-linha').dataset.codigo;
+        const novoCodigo = input.value.trim();
+        mostrarErro('');
+        if (!novoCodigo) {
+          input.value = codigoAntigo;
+          mostrarErro('O código não pode ficar vazio.');
+          return;
+        }
+        if (novoCodigo !== codigoAntigo && familia.artigos.some((a) => a.codigo === novoCodigo)) {
+          input.value = codigoAntigo;
+          mostrarErro(`Já existe um artigo com o código "${novoCodigo}".`);
+          return;
+        }
+        const artigo = familia.artigos.find((a) => a.codigo === codigoAntigo);
+        artigo.codigo = novoCodigo;
+        if (estado[codigoAntigo]) {
+          estado[novoCodigo] = estado[codigoAntigo];
+          delete estado[codigoAntigo];
+          guardarDados();
+        }
+        guardarConfig();
+        render();
+      }
+
+      function alterarNome(input) {
+        const codigo = input.closest('.config-linha').dataset.codigo;
+        const artigo = familia.artigos.find((a) => a.codigo === codigo);
+        const novoNome = input.value.trim();
+        if (!novoNome) {
+          input.value = artigo.nome;
+          return;
+        }
+        artigo.nome = novoNome;
+        guardarConfig();
+      }
+
+      function criarArtigo() {
+        const codigo = document.getElementById('novo-admin-codigo').value.trim();
+        const nome = document.getElementById('novo-admin-nome').value.trim();
+        if (!codigo || !nome) { mostrarErro('Preenche o código e o nome.'); return; }
+        if (familia.artigos.some((a) => a.codigo === codigo)) {
+          mostrarErro(`Já existe um artigo com o código "${codigo}".`);
+          return;
+        }
+        const maiorOrdem = familia.artigos.reduce((max, a) => Math.max(max, a.ordem), 0);
+        familia.artigos.push({ codigo, nome, ordem: maiorOrdem + 10, fornecedores: [] });
+        guardarConfig();
+        render();
+      }
+
+      function descarregar() {
+        const blob = new Blob([JSON.stringify(configuracao, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `configuracao-contagens-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function importar(e) {
+        const ficheiro = e.target.files[0];
+        e.target.value = '';
+        if (!ficheiro) return;
+        const leitor = new FileReader();
+        leitor.onload = () => {
+          try {
+            const nova = JSON.parse(leitor.result);
+            if (!Array.isArray(nova.familias)) throw new Error('O ficheiro não tem "familias".');
+            for (const fam of nova.familias) {
+              for (const art of fam.artigos) {
+                art.fornecedores = art.fornecedores.map((f) => Calculo.construirFornecedor(f));
+              }
+            }
+            if (!window.confirm('Isto substitui toda a configuração atual deste telemóvel. Continuar?')) return;
+            configuracao.familias = nova.familias;
+            guardarConfig();
+            window.location.reload();
+          } catch (erro) {
+            mostrarErro('Não foi possível importar: ' + erro.message);
+          }
+        };
+        leitor.readAsText(ficheiro);
+      }
+
+      render();
     }
   })();
   </script>
