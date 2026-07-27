@@ -160,6 +160,9 @@
     border: 1px solid #e5e7eb; border-radius: 10px; padding: 0.8rem;
     background: #fff; box-shadow: 0 1px 3px rgba(20, 25, 40, 0.06);
   }
+  .exportar-legenda { font-size: 0.85rem; color: #555; margin: 0 0 0.5rem; }
+  .estado-copia { min-height: 1.2rem; font-size: 0.85rem; color: #1a5c1a; margin: 0 0 0.4rem; }
+  .estado-copia.erro-copia { color: #a33; }
 
   .campo { margin-bottom: 0.9rem; }
   .campo label { display: block; font-size: 0.9rem; color: #444; margin-bottom: 0.3rem; }
@@ -859,7 +862,10 @@
         `;
       }
 
-      function tabelaTotaisHTML() {
+      // Totais por artigo (soma de todas as contagens desse artigo, seja qual
+      // for o fornecedor) — a mesma lista serve para mostrar no ecrã e para
+      // os vários formatos de cópia.
+      function totaisPorArtigoLista() {
         const contagensPorCodigo = {};
         for (const artigo of familia.artigos) {
           const dados = estado[artigo.codigo];
@@ -868,7 +874,11 @@
             .filter(linhaTemConteudo)
             .map((linha) => ({ fornecedorId: linha.fornecedorId, quantidades: linha.quantidades }));
         }
-        const resultado = Calculo.gerarResultado(familia, contagensPorCodigo);
+        return Calculo.gerarResultado(familia, contagensPorCodigo);
+      }
+
+      function tabelaTotaisHTML() {
+        const resultado = totaisPorArtigoLista();
         const tudoValido = resultado.every((r) => r.valido);
         const totalGeral = resultado.reduce((soma, r) => soma + r.total, 0);
         return `
@@ -904,6 +914,152 @@
         `;
       }
 
+      // ---------- exportar (copiar / e-mail) ----------
+      // "Números" é sempre por artigo (o que bate certo com as linhas fixas
+      // do Excel), sem cabeçalhos nem total geral — nunca se perde o
+      // alinhamento da coluna. As "Tabelas" trazem o máximo de informação.
+
+      function formatarDataCompleta() {
+        return new Date().toLocaleDateString('pt-PT', { year: 'numeric', month: 'long', day: 'numeric' });
+      }
+
+      function textoNumerosVertical() {
+        return totaisPorArtigoLista().map((r) => (r.valido ? String(r.total) : '?')).join('\n');
+      }
+      function textoNumerosHorizontal() {
+        return totaisPorArtigoLista().map((r) => (r.valido ? String(r.total) : '?')).join('\t');
+      }
+
+      function tabelaPorArtigoConteudo() {
+        const resultado = totaisPorArtigoLista();
+        const tudoValido = resultado.every((r) => r.valido);
+        const totalGeral = resultado.reduce((soma, r) => soma + r.total, 0);
+        const linhasTexto = [
+          ['Código', 'Artigo', 'Total'].join('\t'),
+          ...resultado.map((r) => [r.codigo, r.nome, r.valido ? r.total : 'erro'].join('\t')),
+          `Total geral\t${tudoValido ? totalGeral : 'erro'}`,
+        ];
+        const linhasHtml = [
+          `<tr><th>Código</th><th>Artigo</th><th>Total</th></tr>`,
+          ...resultado.map((r) => `<tr><td>${escaparTexto(r.codigo)}</td><td>${escaparTexto(r.nome)}</td><td>${r.valido ? formatarNumero(r.total) : 'erro'}</td></tr>`),
+          `<tr><td colspan="2"><b>Total geral</b></td><td><b>${tudoValido ? formatarNumero(totalGeral) : 'erro'}</b></td></tr>`,
+        ];
+        return { texto: linhasTexto.join('\n'), html: `<table>${linhasHtml.join('')}</table>` };
+      }
+
+      function tabelaComFornecedoresConteudo() {
+        const linhas = linhasHistorico();
+        const cabecalho = ['Código', 'Artigo', 'Fornecedor', 'Pacotes', 'Caixas', 'Fiadas', 'Paletes', 'Total'];
+        const celula = (fornecedor, linha, nivel) => {
+          if (!fornecedor || Calculo.unidadesPorNivel(fornecedor)[nivel] == null) return '';
+          return String(linha.quantidades[nivel] || 0);
+        };
+        const linhasTexto = [cabecalho.join('\t')];
+        const linhasHtml = [`<tr>${cabecalho.map((c) => `<th>${c}</th>`).join('')}</tr>`];
+        let totalGeral = 0;
+        for (const { artigo, linha } of linhas) {
+          const r = subtotalLinha(artigo, linha);
+          if (r.valido) totalGeral += r.total;
+          const valores = [
+            artigo.codigo, artigo.nome, r.fornecedor ? r.fornecedor.nome : '',
+            celula(r.fornecedor, linha, 'pacote'), celula(r.fornecedor, linha, 'caixa'),
+            celula(r.fornecedor, linha, 'fiada'), celula(r.fornecedor, linha, 'palete'),
+            r.valido ? r.total : 'erro',
+          ];
+          linhasTexto.push(valores.join('\t'));
+          linhasHtml.push(`<tr>${valores.map((v) => `<td>${escaparTexto(String(v))}</td>`).join('')}</tr>`);
+        }
+        linhasTexto.push(`Total geral\t${totalGeral}`);
+        linhasHtml.push(`<tr><td colspan="7"><b>Total geral</b></td><td><b>${formatarNumero(totalGeral)}</b></td></tr>`);
+        return { texto: linhasTexto.join('\n'), html: `<table>${linhasHtml.join('')}</table>` };
+      }
+
+      function corpoEmail() {
+        const linhas = linhasHistorico();
+        const partes = [`Segue inventário do dia ${formatarDataCompleta()}.`, ''];
+        let totalGeral = 0;
+        for (const { artigo, linha } of linhas) {
+          const r = subtotalLinha(artigo, linha);
+          if (r.valido) totalGeral += r.total;
+          partes.push(`${artigo.codigo} - ${artigo.nome} - ${r.fornecedor ? r.fornecedor.nome : ''}: ${r.valido ? formatarNumero(r.total) + ' un' : 'erro'}`);
+        }
+        partes.push('', `Total geral: ${formatarNumero(totalGeral)} un`);
+        return partes.join('\n');
+      }
+
+      function abrirEmail() {
+        const assunto = `Inventário — ${familia.nome} — ${formatarDataCompleta()}`;
+        window.location.href = `mailto:?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpoEmail())}`;
+      }
+
+      // Copia sempre em text/plain; junta text/html quando faz sentido (tabelas).
+      // O ClipboardItem tem de receber Promises (não Blobs já resolvidos) para
+      // o Safari do iPhone aceitar, e isto tem de correr sem `await` antes,
+      // dentro do próprio clique, para não perder a autorização do gesto.
+      async function copiarParaAreaDeTransferencia(html, texto) {
+        try {
+          if (window.ClipboardItem) {
+            const item = new ClipboardItem({
+              'text/plain': Promise.resolve(new Blob([texto], { type: 'text/plain' })),
+              ...(html ? { 'text/html': Promise.resolve(new Blob([html], { type: 'text/html' })) } : {}),
+            });
+            await navigator.clipboard.write([item]);
+            return true;
+          }
+          await navigator.clipboard.writeText(texto);
+          return true;
+        } catch (e) {
+          try {
+            await navigator.clipboard.writeText(texto);
+            return true;
+          } catch (e2) {
+            return false;
+          }
+        }
+      }
+
+      function executarCopia(html, texto) {
+        copiarParaAreaDeTransferencia(html, texto).then((sucesso) => {
+          const el = document.getElementById('estado-copia');
+          if (!el) return;
+          el.textContent = sucesso ? 'Copiado.' : 'Não foi possível copiar — tenta selecionar e copiar à mão.';
+          el.classList.toggle('erro-copia', !sucesso);
+          setTimeout(() => { if (el) el.textContent = ''; }, 2500);
+        });
+      }
+
+      function blocoExportarHTML() {
+        return `
+          <p class="secao-titulo">Copiar</p>
+          <p id="estado-copia" class="estado-copia"></p>
+          <div class="secao-cartao">
+            <p class="exportar-legenda">Só números, para colar no Excel</p>
+            <button type="button" class="btn-secundario" id="btn-copiar-vertical" style="margin-top:0">Coluna (um número por linha)</button>
+            <button type="button" class="btn-secundario" id="btn-copiar-horizontal">Linha (números lado a lado)</button>
+          </div>
+          <div class="secao-cartao" style="margin-top:0.6rem">
+            <p class="exportar-legenda">Tabela completa (código, artigo, fornecedor e totais)</p>
+            <button type="button" class="btn-secundario" id="btn-copiar-artigo" style="margin-top:0">Por artigo</button>
+            <button type="button" class="btn-secundario" id="btn-copiar-fornecedores">Por artigo e fornecedor</button>
+            <button type="button" class="btn-primario" id="btn-email" style="margin-top:0.6rem; margin-bottom:0">Preparar e-mail</button>
+          </div>
+        `;
+      }
+
+      function ligarBotoesExportar() {
+        document.getElementById('btn-copiar-vertical').addEventListener('click', () => executarCopia(null, textoNumerosVertical()));
+        document.getElementById('btn-copiar-horizontal').addEventListener('click', () => executarCopia(null, textoNumerosHorizontal()));
+        document.getElementById('btn-copiar-artigo').addEventListener('click', () => {
+          const c = tabelaPorArtigoConteudo();
+          executarCopia(c.html, c.texto);
+        });
+        document.getElementById('btn-copiar-fornecedores').addEventListener('click', () => {
+          const c = tabelaComFornecedoresConteudo();
+          executarCopia(c.html, c.texto);
+        });
+        document.getElementById('btn-email').addEventListener('click', abrirEmail);
+      }
+
       function renderInicio() {
         app.innerHTML = `
           <div class="topo">
@@ -915,7 +1071,7 @@
             <button type="button" class="aba ${abaInicio === 'historico' ? 'ativa' : ''}" data-aba="historico">Histórico</button>
             <button type="button" class="aba ${abaInicio === 'totais' ? 'ativa' : ''}" data-aba="totais">Totais</button>
           </div>
-          ${abaInicio === 'historico' ? tabelaHistoricoHTML() : tabelaTotaisHTML()}
+          ${abaInicio === 'historico' ? tabelaHistoricoHTML() : tabelaTotaisHTML() + blocoExportarHTML()}
         `;
 
         document.getElementById('btn-nova-contagem').addEventListener('click', () => {
@@ -953,6 +1109,7 @@
               renderInicio();
             });
           });
+          ligarBotoesExportar();
         }
       }
 
