@@ -93,10 +93,10 @@
   .item-selecao.novo { border-style: dashed; border-color: #999; color: #2563eb; font-weight: bold; }
 
   .lista-config { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
-  .config-linha {
-    display: flex; align-items: center; gap: 0.5rem;
+  .config-artigo {
     border: 1px solid #ddd; border-radius: 8px; padding: 0.5rem; background: #fff;
   }
+  .config-linha { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
   .config-setas { display: flex; flex-direction: column; gap: 0.2rem; flex: 0 0 auto; }
   .config-setas button {
     min-width: 36px; min-height: 32px; border: 1px solid #ccc; border-radius: 4px;
@@ -108,6 +108,21 @@
     padding: 0 0.5rem; font-size: 0.95rem;
   }
   .config-codigo { flex: 0 0 4.5rem; }
+
+  .btn-toggle-fornecedores { text-align: left; font-size: 0.9rem; }
+  .lista-fornecedores-admin { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem; }
+  .fornecedor-linha-admin {
+    display: flex; align-items: center; gap: 0.5rem;
+    border: 1px solid #eee; border-radius: 6px; padding: 0.5rem;
+  }
+  .fornecedor-linha-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .fornecedor-linha-texto span { font-size: 0.78rem; color: #666; }
+  .btn-editar-fornecedor, .btn-eliminar-fornecedor {
+    min-height: 40px; padding: 0 0.6rem; border: 1px solid #ccc; border-radius: 6px;
+    background: #f7f7f7; font-size: 0.85rem; flex: 0 0 auto;
+  }
+  .btn-eliminar-fornecedor { color: #a33; }
+  .formulario-fornecedor-admin { border: 1px solid #ddd; border-radius: 8px; padding: 0.6rem; }
 
   .campo { margin-bottom: 0.9rem; }
   .campo label { display: block; font-size: 0.9rem; color: #444; margin-bottom: 0.3rem; }
@@ -565,6 +580,62 @@
     const app = document.getElementById('app');
     const parametros = new URLSearchParams(window.location.search);
 
+    // ---------- auxiliares partilhados (contagem + administração) ----------
+
+    function escaparTexto(texto) {
+      return String(texto).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    function novoId(prefixo) { return `${prefixo}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`; }
+
+    // Campos do formulário de fornecedor (nome + multiplicadores), usados
+    // tanto ao criar um fornecedor durante a contagem como ao editar um
+    // já existente na administração. `prefixo` isola os ids quando há mais
+    // do que um formulário destes na mesma página.
+    function camposFornecedorHTML(prefixo, f) {
+      const v = f || {};
+      const temFiada = v.caixas_por_fiada != null;
+      const temPalete = v.fiadas_por_palete != null;
+      return `
+        <div class="campo"><label for="${prefixo}-nome">Nome do fornecedor</label><input type="text" id="${prefixo}-nome" value="${v.nome ? escaparTexto(v.nome) : ''}"></div>
+        <div class="campo"><label for="${prefixo}-pacote">Unidades por pacote</label><input type="number" inputmode="numeric" id="${prefixo}-pacote" value="${v.unidades_por_pacote ?? ''}"></div>
+        <div class="campo"><label for="${prefixo}-caixa">Pacotes por caixa</label><input type="number" inputmode="numeric" id="${prefixo}-caixa" value="${v.pacotes_por_caixa ?? ''}"></div>
+        <label class="toggle-linha"><input type="checkbox" id="${prefixo}-tem-fiada" ${temFiada ? 'checked' : ''}> Este fornecedor tem fiada</label>
+        <div class="campo" id="${prefixo}-bloco-fiada" style="display:${temFiada ? '' : 'none'}">
+          <label for="${prefixo}-fiada">Caixas por fiada</label><input type="number" inputmode="numeric" id="${prefixo}-fiada" value="${v.caixas_por_fiada ?? ''}">
+        </div>
+        <label class="toggle-linha" id="${prefixo}-linha-tem-palete" style="display:${temFiada ? '' : 'none'}">
+          <input type="checkbox" id="${prefixo}-tem-palete" ${temPalete ? 'checked' : ''}> Este fornecedor tem palete
+        </label>
+        <div class="campo" id="${prefixo}-bloco-palete" style="display:${temPalete ? '' : 'none'}">
+          <label for="${prefixo}-palete">Fiadas por palete</label><input type="number" inputmode="numeric" id="${prefixo}-palete" value="${v.fiadas_por_palete ?? ''}">
+        </div>
+      `;
+    }
+    function ligarTogglesFornecedor(prefixo) {
+      document.getElementById(`${prefixo}-tem-fiada`).addEventListener('change', (e) => {
+        document.getElementById(`${prefixo}-bloco-fiada`).style.display = e.target.checked ? '' : 'none';
+        document.getElementById(`${prefixo}-linha-tem-palete`).style.display = e.target.checked ? '' : 'none';
+        if (!e.target.checked) {
+          document.getElementById(`${prefixo}-tem-palete`).checked = false;
+          document.getElementById(`${prefixo}-bloco-palete`).style.display = 'none';
+        }
+      });
+      document.getElementById(`${prefixo}-tem-palete`).addEventListener('change', (e) => {
+        document.getElementById(`${prefixo}-bloco-palete`).style.display = e.target.checked ? '' : 'none';
+      });
+    }
+    function lerCamposFornecedor(prefixo) {
+      const temFiada = document.getElementById(`${prefixo}-tem-fiada`).checked;
+      const temPalete = document.getElementById(`${prefixo}-tem-palete`).checked;
+      return {
+        nome: document.getElementById(`${prefixo}-nome`).value.trim(),
+        unidades_por_pacote: Number(document.getElementById(`${prefixo}-pacote`).value),
+        pacotes_por_caixa: Number(document.getElementById(`${prefixo}-caixa`).value),
+        caixas_por_fiada: temFiada ? Number(document.getElementById(`${prefixo}-fiada`).value) : null,
+        fiadas_por_palete: temPalete ? Number(document.getElementById(`${prefixo}-palete`).value) : null,
+      };
+    }
+
     if (parametros.get('teste') === '1') {
       iniciarEcraDeTestes();
     } else if (parametros.get('admin') === '1') {
@@ -618,12 +689,8 @@
         if (!estado[codigo]) estado[codigo] = { contagens: [], observacoes: '' };
         return estado[codigo];
       }
-      function novoId(prefixo) { return `${prefixo}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`; }
 
       function formatarNumero(n) { return new Intl.NumberFormat('pt-PT').format(n); }
-      function escaparTexto(texto) {
-        return String(texto).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      }
 
       function subtotalLinha(artigo, linha) {
         const fornecedor = fornecedorDe(artigo, linha.fornecedorId);
@@ -939,53 +1006,21 @@
         app.innerHTML = `
           ${topoContagem(`${artigo.nome} — fornecedor novo`)}
           <div id="erro-fornecedor"></div>
-          <div class="campo"><label for="f-nome">Nome do fornecedor</label><input type="text" id="f-nome"></div>
-          <div class="campo"><label for="f-pacote">Unidades por pacote</label><input type="number" inputmode="numeric" id="f-pacote"></div>
-          <div class="campo"><label for="f-caixa">Pacotes por caixa</label><input type="number" inputmode="numeric" id="f-caixa"></div>
-          <label class="toggle-linha"><input type="checkbox" id="f-tem-fiada"> Este fornecedor tem fiada</label>
-          <div class="campo" id="bloco-fiada" style="display:none">
-            <label for="f-fiada">Caixas por fiada</label><input type="number" inputmode="numeric" id="f-fiada">
-          </div>
-          <label class="toggle-linha" id="linha-tem-palete" style="display:none">
-            <input type="checkbox" id="f-tem-palete"> Este fornecedor tem palete
-          </label>
-          <div class="campo" id="bloco-palete" style="display:none">
-            <label for="f-palete">Fiadas por palete</label><input type="number" inputmode="numeric" id="f-palete">
-          </div>
+          ${camposFornecedorHTML('f', null)}
           <button type="button" class="btn-primario" id="btn-criar-fornecedor">Criar fornecedor</button>
         `;
         ligarBotaoVoltar();
-
-        document.getElementById('f-tem-fiada').addEventListener('change', (e) => {
-          document.getElementById('bloco-fiada').style.display = e.target.checked ? '' : 'none';
-          document.getElementById('linha-tem-palete').style.display = e.target.checked ? '' : 'none';
-          if (!e.target.checked) {
-            document.getElementById('f-tem-palete').checked = false;
-            document.getElementById('bloco-palete').style.display = 'none';
-          }
-        });
-        document.getElementById('f-tem-palete').addEventListener('change', (e) => {
-          document.getElementById('bloco-palete').style.display = e.target.checked ? '' : 'none';
-        });
+        ligarTogglesFornecedor('f');
 
         document.getElementById('btn-criar-fornecedor').addEventListener('click', () => {
           const erroEl = document.getElementById('erro-fornecedor');
-          const nome = document.getElementById('f-nome').value.trim();
-          const unidades_por_pacote = Number(document.getElementById('f-pacote').value);
-          const pacotes_por_caixa = Number(document.getElementById('f-caixa').value);
-          const temFiada = document.getElementById('f-tem-fiada').checked;
-          const temPalete = document.getElementById('f-tem-palete').checked;
-          const caixas_por_fiada = temFiada ? Number(document.getElementById('f-fiada').value) : null;
-          const fiadas_por_palete = temPalete ? Number(document.getElementById('f-palete').value) : null;
-
-          if (!nome) {
+          const valores = lerCamposFornecedor('f');
+          if (!valores.nome) {
             erroEl.innerHTML = `<p class="erro-mensagem">Dá um nome ao fornecedor.</p>`;
             return;
           }
           try {
-            const fornecedor = Calculo.construirFornecedor({
-              id: novoId('forn'), nome, unidades_por_pacote, pacotes_por_caixa, caixas_por_fiada, fiadas_por_palete,
-            });
+            const fornecedor = Calculo.construirFornecedor({ id: novoId('forn'), ...valores });
             artigo.fornecedores.push(fornecedor);
             guardarConfig();
             abrirQuantidades(artigo.codigo, fornecedor.id, { substituir: true });
@@ -1079,15 +1114,69 @@
       const familia = configuracao.familias.find((f) => f.id === 'fraldas') || configuracao.familias[0];
       const estado = Armazenamento.obterContagens(familia.id);
 
+      let artigosComFornecedoresAbertos = new Set();
+      let fornecedorEmEdicao = null; // { codigoArtigo, fornecedorId } — fornecedorId null = a criar um novo
+
       function guardarConfig() { Armazenamento.guardarConfiguracao(configuracao); }
       function guardarDados() { Armazenamento.guardarContagens(familia.id, estado); }
       function artigosOrdenados() { return [...familia.artigos].sort((a, b) => a.ordem - b.ordem); }
-      function escaparTexto(texto) {
-        return String(texto).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      }
 
       function mostrarErro(msg) {
         document.getElementById('erro-admin').innerHTML = msg ? `<p class="erro-mensagem">${escaparTexto(msg)}</p>` : '';
+      }
+
+      function fornecedorResumoTexto(f) {
+        const partes = [`${f.unidades_por_pacote} un/pacote`, `${f.pacotes_por_caixa} pac/caixa`];
+        if (f.caixas_por_fiada != null) partes.push(`${f.caixas_por_fiada} cx/fiada`);
+        if (f.fiadas_por_palete != null) partes.push(`${f.fiadas_por_palete} fiadas/palete`);
+        return partes.join(' · ');
+      }
+
+      function formularioFornecedorHTML(artigo, f) {
+        const prefixo = `form-forn-${artigo.codigo}-${f ? f.id : 'novo'}`;
+        return `
+          <div class="formulario-fornecedor-admin" data-prefixo="${prefixo}" data-codigo="${artigo.codigo}" data-id="${f ? f.id : ''}">
+            <div id="erro-${prefixo}"></div>
+            ${camposFornecedorHTML(prefixo, f)}
+            <button type="button" class="btn-primario btn-guardar-fornecedor" data-prefixo="${prefixo}" data-codigo="${artigo.codigo}" data-id="${f ? f.id : ''}">Guardar</button>
+            <button type="button" class="btn-secundario btn-cancelar-fornecedor">Cancelar</button>
+          </div>
+        `;
+      }
+
+      function fornecedorLinhaHTML(artigo, f) {
+        if (fornecedorEmEdicao && fornecedorEmEdicao.codigoArtigo === artigo.codigo && fornecedorEmEdicao.fornecedorId === f.id) {
+          return formularioFornecedorHTML(artigo, f);
+        }
+        return `
+          <div class="fornecedor-linha-admin">
+            <div class="fornecedor-linha-texto">
+              <b>${escaparTexto(f.nome)}</b>
+              <span>${fornecedorResumoTexto(f)}</span>
+            </div>
+            <button type="button" class="btn-editar-fornecedor" data-codigo="${artigo.codigo}" data-id="${f.id}">Editar</button>
+            <button type="button" class="btn-eliminar-fornecedor" data-codigo="${artigo.codigo}" data-id="${f.id}">Eliminar</button>
+          </div>
+        `;
+      }
+
+      function blocoFornecedoresHTML(artigo) {
+        const aberto = artigosComFornecedoresAbertos.has(artigo.codigo);
+        const aCriar = fornecedorEmEdicao && fornecedorEmEdicao.codigoArtigo === artigo.codigo && fornecedorEmEdicao.fornecedorId === null;
+        return `
+          <button type="button" class="btn-secundario btn-toggle-fornecedores" data-codigo="${artigo.codigo}">
+            ${aberto ? '▾' : '▸'} Fornecedores (${artigo.fornecedores.length})
+          </button>
+          ${aberto ? `
+            <div class="lista-fornecedores-admin">
+              ${artigo.fornecedores.map((f) => fornecedorLinhaHTML(artigo, f)).join('')}
+              ${aCriar
+                ? formularioFornecedorHTML(artigo, null)
+                : `<button type="button" class="btn-secundario btn-add-fornecedor" data-codigo="${artigo.codigo}">+ Adicionar fornecedor</button>`
+              }
+            </div>
+          ` : ''}
+        `;
       }
 
       function render() {
@@ -1101,13 +1190,16 @@
           <p class="secao-titulo">Artigos (as setas mudam a ordem em "Totais")</p>
           <div class="lista-config">
             ${ordenados.map((a, i) => `
-              <div class="config-linha" data-codigo="${a.codigo}">
-                <div class="config-setas">
-                  <button type="button" class="btn-subir" ${i === 0 ? 'disabled' : ''} aria-label="Mover para cima">▲</button>
-                  <button type="button" class="btn-descer" ${i === ordenados.length - 1 ? 'disabled' : ''} aria-label="Mover para baixo">▼</button>
+              <div class="config-artigo">
+                <div class="config-linha" data-codigo="${a.codigo}">
+                  <div class="config-setas">
+                    <button type="button" class="btn-subir" ${i === 0 ? 'disabled' : ''} aria-label="Mover para cima">▲</button>
+                    <button type="button" class="btn-descer" ${i === ordenados.length - 1 ? 'disabled' : ''} aria-label="Mover para baixo">▼</button>
+                  </div>
+                  <input type="text" class="config-codigo" value="${escaparTexto(a.codigo)}" aria-label="Código">
+                  <input type="text" class="config-nome" value="${escaparTexto(a.nome)}" aria-label="Nome">
                 </div>
-                <input type="text" class="config-codigo" value="${escaparTexto(a.codigo)}" aria-label="Código">
-                <input type="text" class="config-nome" value="${escaparTexto(a.nome)}" aria-label="Nome">
+                ${blocoFornecedoresHTML(a)}
               </div>
             `).join('')}
           </div>
@@ -1148,6 +1240,80 @@
           document.getElementById('input-importar').click();
         });
         document.getElementById('input-importar').addEventListener('change', importar);
+
+        app.querySelectorAll('.btn-toggle-fornecedores').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const codigo = btn.dataset.codigo;
+            if (artigosComFornecedoresAbertos.has(codigo)) artigosComFornecedoresAbertos.delete(codigo);
+            else artigosComFornecedoresAbertos.add(codigo);
+            render();
+          });
+        });
+        app.querySelectorAll('.btn-add-fornecedor').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            fornecedorEmEdicao = { codigoArtigo: btn.dataset.codigo, fornecedorId: null };
+            render();
+          });
+        });
+        app.querySelectorAll('.btn-editar-fornecedor').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            fornecedorEmEdicao = { codigoArtigo: btn.dataset.codigo, fornecedorId: btn.dataset.id };
+            render();
+          });
+        });
+        app.querySelectorAll('.btn-cancelar-fornecedor').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            fornecedorEmEdicao = null;
+            render();
+          });
+        });
+        app.querySelectorAll('.btn-eliminar-fornecedor').forEach((btn) => {
+          btn.addEventListener('click', () => eliminarFornecedor(btn.dataset.codigo, btn.dataset.id));
+        });
+        app.querySelectorAll('.formulario-fornecedor-admin').forEach((form) => {
+          ligarTogglesFornecedor(form.dataset.prefixo);
+        });
+        app.querySelectorAll('.btn-guardar-fornecedor').forEach((btn) => {
+          btn.addEventListener('click', () => guardarFornecedor(btn.dataset.prefixo, btn.dataset.codigo, btn.dataset.id || null));
+        });
+      }
+
+      function guardarFornecedor(prefixo, codigoArtigo, fornecedorId) {
+        const artigo = familia.artigos.find((a) => a.codigo === codigoArtigo);
+        const valores = lerCamposFornecedor(prefixo);
+        const erroEl = document.getElementById(`erro-${prefixo}`);
+        if (!valores.nome) {
+          erroEl.innerHTML = `<p class="erro-mensagem">Dá um nome ao fornecedor.</p>`;
+          return;
+        }
+        try {
+          const fornecedor = Calculo.construirFornecedor({ id: fornecedorId || novoId('forn'), ...valores });
+          if (fornecedorId) {
+            const i = artigo.fornecedores.findIndex((f) => f.id === fornecedorId);
+            artigo.fornecedores[i] = fornecedor;
+          } else {
+            artigo.fornecedores.push(fornecedor);
+          }
+          guardarConfig();
+          fornecedorEmEdicao = null;
+          render();
+        } catch (erro) {
+          erroEl.innerHTML = `<p class="erro-mensagem">${escaparTexto(erro.message)}</p>`;
+        }
+      }
+
+      function eliminarFornecedor(codigoArtigo, fornecedorId) {
+        const artigo = familia.artigos.find((a) => a.codigo === codigoArtigo);
+        const fornecedor = artigo.fornecedores.find((f) => f.id === fornecedorId);
+        const dadosContagem = estado[codigoArtigo];
+        const emUso = dadosContagem && dadosContagem.contagens.some((c) => c.fornecedorId === fornecedorId);
+        const aviso = emUso
+          ? `O fornecedor "${fornecedor.nome}" tem contagens guardadas. Se o eliminares, essas contagens ficam sem fornecedor e o total desse artigo passa a mostrar erro. Continuar?`
+          : `Eliminar o fornecedor "${fornecedor.nome}"?`;
+        if (!window.confirm(aviso)) return;
+        artigo.fornecedores = artigo.fornecedores.filter((f) => f.id !== fornecedorId);
+        guardarConfig();
+        render();
       }
 
       function mover(codigo, direcao) {
