@@ -873,12 +873,7 @@
         ligarBotaoVoltar();
         app.querySelectorAll('.item-selecao[data-codigo]').forEach((btn) => {
           btn.addEventListener('click', () => {
-            const artigo = artigoPorCodigo(btn.dataset.codigo);
-            if (artigo.fornecedores.length === 1) {
-              abrirQuantidades(artigo.codigo, artigo.fornecedores[0].id);
-            } else {
-              irPara({ ecra: 'contagem', passo: 'fornecedor', codigo: artigo.codigo });
-            }
+            irPara({ ecra: 'contagem', passo: 'fornecedor', codigo: btn.dataset.codigo });
           });
         });
         document.getElementById('btn-artigo-novo').addEventListener('click', () => {
